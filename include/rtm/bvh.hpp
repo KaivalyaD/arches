@@ -168,7 +168,7 @@ public:
 			for(uint i = start; i < end; ++i)
 			{
 				uint64_t mask = common_prefix ^ build_objects[i].morton_code;
-				common_prefix_size = std::min(common_prefix_size, _lzcnt_u64(mask));
+				common_prefix_size = std::min(common_prefix_size, (uint64_t)_lzcnt_u64(mask));
 			}
 
 			//All keys are identical. An arbitrary split

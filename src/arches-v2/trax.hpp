@@ -132,8 +132,10 @@ static TRaXKernelArgs initilize_buffers(uint8_t* main_memory, paddr_t& heap_addr
 {
 	std::string scene_name = sim_config.get_string("scene_name");
 	std::string project_folder = get_project_folder_path();
-	std::string datasets_folder = project_folder + "datasets\\";
-	std::string cache_folder = project_folder + "datasets\\cache\\";
+	// std::string datasets_folder = project_folder + "datasets\\";
+	// std::string cache_folder = project_folder + "datasets\\cache\\";
+	std::string datasets_folder = project_folder + "datasets/";
+	std::string cache_folder = project_folder + "datasets/cache/";
 
 	TRaXKernelArgs args;
 	args.framebuffer_width = sim_config.get_int("framebuffer_width");
@@ -362,7 +364,8 @@ static void run_sim_trax(SimulationConfig& sim_config)
 
 	//DRAM
 	UnitDRAM::Configuration dram_config;
-	dram_config.config_path = project_folder_path + "build\\src\\arches-v2\\config-files\\gddr6_14000_config.yaml";
+	// dram_config.config_path = project_folder_path + "build\\src\\arches-v2\\config-files\\gddr6_14000_config.yaml";
+	dram_config.config_path = project_folder_path + "build/src/arches-v2/config-files/gddr6_14000_config.yaml";
 	dram_config.size = 1ull << 30; //1GB
 	dram_config.clock_ratio = dram_clock / core_clock;
 	dram_config.latency = 92;
@@ -459,7 +462,7 @@ static void run_sim_trax(SimulationConfig& sim_config)
 	UnitL1Cache::PowerConfig l1d_power_config;
 #endif
 
-	ELF elf(project_folder_path + "src\\trax-kernel\\riscv\\kernel");
+	ELF elf(project_folder_path + "src/trax-kernel/riscv/kernel");
 
 	ISA::RISCV::InstructionTypeNameDatabase::get_instance()[ISA::RISCV::InstrType::CUSTOM0] = "FCHTHRD";
 	ISA::RISCV::InstructionTypeNameDatabase::get_instance()[ISA::RISCV::InstrType::CUSTOM1] = "BOXISECT";

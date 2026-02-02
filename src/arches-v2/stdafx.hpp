@@ -142,8 +142,9 @@
 #include <functional>
 #include <bitset>
 
-#include <intrin.h>
-#include <xmmintrin.h>
+// #include <intrin.h>
+// #include <xmmintrin.h>
+#include <immintrin.h>
 
 
 
@@ -151,7 +152,8 @@
 #ifndef _DEBUG
 inline void _assert(bool x)
 {
-	if(!x) __debugbreak();
+	// if(!x) __debugbreak();
+	assert(x);
 }
 #else
 inline void _assert(bool x)

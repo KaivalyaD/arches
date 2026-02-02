@@ -7,7 +7,7 @@ namespace TRaX {
 
 
 template<typename NT>
-UnitPRTCore<NT>::UnitPRTCore<NT>(const Configuration& config) :
+UnitPRTCore<NT>::UnitPRTCore(const Configuration& config) :
 	_max_rays(config.max_rays), _cache_port(config.cache_port), _num_clients(config.num_clients),
 	_node_base_addr(config.node_base_addr), _tri_base_addr(config.tri_base_addr),
 	_cache(config.cache), _request_network(config.num_clients, 1), _return_network(1, config.num_clients),
@@ -58,8 +58,8 @@ void UnitPRTCore<NT>::clock_fall()
 template<typename NT>
 bool UnitPRTCore<NT>::_try_queue_node(uint ray_id, uint node_id)
 {
-	paddr_t start = _node_base_addr + node_id * sizeof(NT::Node);
-	paddr_t end = start + sizeof(NT::Node);
+	paddr_t start = _node_base_addr + node_id * sizeof(typename NT::Node);
+	paddr_t end = start + sizeof(typename NT::Node);
 
 	_assert(start < 0x1ull << 32);
 
@@ -190,7 +190,7 @@ void UnitPRTCore<NT>::_read_returns()
 
 		if(buffer.type == 0)
 		{
-			if(buffer.bytes_filled == sizeof(NT::Node))
+			if(buffer.bytes_filled == sizeof(typename NT::Node))
 			{
 				ray_state.phase = RayState::Phase::NODE_ISECT;
 				_node_isect_queue.push(ray_id);

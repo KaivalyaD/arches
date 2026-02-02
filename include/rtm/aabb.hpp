@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cfloat>
 #include "float.hpp"
 #include "int.hpp"
 #include "vec3.hpp"

@@ -21,7 +21,7 @@ affected threads' ready cycles for the given register.
 #include "memory_controller.h"
 #include "scheduler.h"
 #include "params.h"
-#include <windows.h>
+// #include <windows.h>
 
 #define MAXTRACELINESIZE 64
 
@@ -205,10 +205,12 @@ int usimm_setup(char* config_filename,
     long long int *addr;
     long long int *instrpc;
 
-	TCHAR exePath[MAX_PATH];
-	GetModuleFileName(NULL, exePath, MAX_PATH);
-	std::wstring fullPath(exePath);
-	std::wstring exeFolder = fullPath.substr(0, fullPath.find_last_of(L"\\") + 1);
+	// TCHAR exePath[MAX_PATH];
+	// GetModuleFileName(NULL, exePath, MAX_PATH);
+	// std::wstring fullPath(exePath);
+	// std::wstring exeFolder = fullPath.substr(0, fullPath.find_last_of(L"\\") + 1);
+	std::string fullPath("build/src/arches-v2/arches-v2");
+	std::string exeFolder = fullPath.substr(0, fullPath.find_last_of("/") + 1);
 	std::string current_folder_path(exeFolder.begin(), exeFolder.end());
 
 	std::string abs_path = current_folder_path + config_filename;

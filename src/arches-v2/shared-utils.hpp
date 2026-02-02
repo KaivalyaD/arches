@@ -17,15 +17,21 @@
 #include "isa/riscv.hpp"
 #include "rtm/rtm.hpp"
 
-#include <Windows.h>
+// #include <Windows.h>
+#include <linux/limits.h>
 
+char full_exe_name[FILENAME_MAX];
 namespace Arches {
+
+void set_full_exe_name(const char *name) {
+	strcpy(full_exe_name, name);
+}
 
 std::string get_project_folder_path()
 {
-	CHAR path[MAX_PATH];
-	GetModuleFileNameA(NULL, path, MAX_PATH);
-	std::string executable_path(path);
+	// CHAR path[MAX_PATH];
+	// GetModuleFileNameA(NULL, path, MAX_PATH);
+	std::string executable_path(full_exe_name);
 	return executable_path.substr(0, executable_path.rfind("build"));
 }
 

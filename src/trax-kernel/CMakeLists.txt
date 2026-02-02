@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.14)
 
+# Enable intrinsics like _lzcnt_u64 - find this out
+add_compile_options(-march=native)
+
 set(PROJECT_NAME "trax-kernel")
 
 file(GLOB FILES *.hpp *.cpp)

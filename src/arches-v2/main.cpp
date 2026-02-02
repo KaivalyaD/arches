@@ -10,6 +10,7 @@ int arches_verbosity = 1;
 
 int main(int argc, char* argv[])
 {
+	Arches::set_full_exe_name(argv[0]);
 	Arches::SimulationConfig sim_config(argc, argv);
 	sim_config.print();
 

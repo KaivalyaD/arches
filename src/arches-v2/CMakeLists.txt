@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.14)
 add_compile_definitions(UNICODE _UNICODE)
 
+# Enable intrinsics like _lzcnt_u64 - find this out
+add_compile_options(-march=native)
+
 set(PROJECT_NAME "arches-v2")
 
 file(GLOB_RECURSE ALL_INCLUDE CONFIGURE_DEPENDS "*.hpp" "*.h")
@@ -53,8 +56,9 @@ target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/src)
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT DISABLE)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME ${PROJECT_NAME})
-target_link_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/libraries/tbb)
-target_link_libraries(${PROJECT_NAME} PRIVATE tbb12.lib)
+# target_link_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/libraries/tbb)
+# target_link_libraries(${PROJECT_NAME} PRIVATE tbb12.lib)
+target_link_libraries(${PROJECT_NAME} PRIVATE tbb)
 target_link_libraries(${PROJECT_NAME} PRIVATE Ramulator)
 #set_target_properties(${PROJECT_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_CURRENT_BINARY_DIR})
 #set_target_properties(${PROJECT_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_CURRENT_BINARY_DIR})

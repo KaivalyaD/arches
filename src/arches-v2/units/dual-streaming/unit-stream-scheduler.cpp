@@ -224,7 +224,7 @@ void UnitStreamScheduler::_update_scheduler()
 					SegmentState& child_state = _scheduler.segment_state_map[child_id];
 					child_state.depth = last_segment_state.depth + 1;
 					if(_scheduler.weight_scheme == 0)      child_weights[i] = child_state.weight; // based on total weight
-					else if(_scheduler.weight_scheme == 1) child_weights[i] = child_state.weight / std::max(1ull, child_state.num_rays); // based on average ray weight
+					else if(_scheduler.weight_scheme == 1) child_weights[i] = child_state.weight / std::max((uint64_t)1, child_state.num_rays); // based on average ray weight
 					else                                   child_weights[i] = 0.0f; //falls back to order in memory
 					child_state.scheduled_weight = child_weights[i];
 				}

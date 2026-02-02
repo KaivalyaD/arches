@@ -34,12 +34,14 @@ inline uint clz(uint64_t mask)
 
 inline uint popcnt(uint64_t mask)
 {
-	return __popcnt64(mask);
+	// return __popcnt64(mask);
+	return _popcnt64(mask);
 }
 
 inline uint64_t rotr(uint64_t mask, uint n)
 {
-	return _rotr64(mask, n);
+	// return _rotr64(mask, n);
+	return _lrotr(mask, n);
 }
 
 inline uint64_t pdep(uint64_t data, uint64_t mask)

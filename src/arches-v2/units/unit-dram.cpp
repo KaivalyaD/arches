@@ -1,6 +1,6 @@
 #include "unit-dram.hpp"
 
-#include "USIMM/usimm.h"
+#include "usimm/usimm.h"
 
 namespace Arches { namespace Units {
 

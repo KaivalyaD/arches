@@ -150,7 +150,7 @@ public:
 		if(prim_size / sizeof(Node) != WBVH::LEAF_RATIO)
 		{
 			printf("HE%dCWBVH%d: Warning incorrect leaf ratio!!!\n", Node::NQ, WIDTH);
-			__debugbreak();
+			// __debugbreak();
 		}
 
 		uint8_t max_exp = 0;

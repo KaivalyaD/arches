@@ -1,7 +1,7 @@
 #pragma once 
 #include "stdafx.hpp"
 
-#include "USIMM/memory_controller.h"
+#include "usimm/memory_controller.h"
 
 #include "unit-base.hpp"
 #include "unit-main-memory-base.hpp"

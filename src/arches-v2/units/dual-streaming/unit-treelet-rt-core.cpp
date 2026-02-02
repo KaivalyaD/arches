@@ -23,7 +23,7 @@ template<typename TT>
 bool UnitTreeletRTCore<TT>::_try_queue_node(uint ray_id, uint treelet_id, uint node_id)
 {
 	paddr_t start = (paddr_t)&((TT*)_treelet_base_addr)[treelet_id].nodes[node_id];
-	paddr_t end = start + sizeof(TT::Node);
+	paddr_t end = start + sizeof(typename TT::Node);
 
 	RayState& ray_state = _ray_states[ray_id];
 	ray_state.buffer.address = start;
@@ -169,7 +169,7 @@ void UnitTreeletRTCore<TT>::_read_returns()
 
 		if(buffer.type == 0)
 		{
-			if(buffer.bytes_filled == sizeof(TT::Node))
+			if(buffer.bytes_filled == sizeof(typename  TT::Node))
 			{
 				ray_state.phase = RayState::Phase::NODE_ISECT;
 				_node_isect_queue.push(ray_id);
