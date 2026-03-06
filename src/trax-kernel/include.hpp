@@ -27,8 +27,18 @@ struct TRaXKernelArgs
 	rtm::Camera camera;
 	rtm::vec3 light_dir;
 	rtm::Ray* rays;
-
 	rtm::CWBVH::Node* nodes;
-	rtm::FTB* ftbs;
-	rtm::Triangle* tris;
+	rtm::FTB* ft_blocks;
+
+	//mesh data
+	rtm::uvec3* vertex_indices;
+	rtm::uvec3* normal_indices;
+	rtm::uvec3* tex_coord_indices;
+
+	rtm::vec3* vertices;
+	rtm::vec3* normals;
+	rtm::vec2* tex_coords;
+
+	uint* material_indices;
+	rtm::Material* materials;
 };

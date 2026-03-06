@@ -111,6 +111,18 @@ bool UnitRTCore<NT, PT>::_try_queue_tri(uint ray_id, uint tri_id)
 		addr += req.size;
 	}
 
+	auto& last_req = _cache_fetch_queues[ray_id % _cache_fetch_queues.size()].back();
+	//last_req.flags.trigger_prefetch = 1;
+	//for(uint32_t i = 0; i < 8; ++i)
+	//{
+	//	last_req.prefetch_offsets[0] = 0;
+	//	if(i < ray_state.stack_size)
+	//	{
+	//		paddr_t addr = ray_state.stack[ray_state.stack_size - i - 1];
+	//		if(addr / 4096 == start / 4096) last_req.prefetch_offsets[0] = (start % 4096) / 32;
+	//	}
+	//}
+
 	return true;
 }
 

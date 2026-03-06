@@ -28,13 +28,13 @@ struct MemoryRequest
 		AMO_MAXU,
 
 		FCHTHRD,
-		CSHIT,
 	};
 
 	struct Flags
 	{
 		uint8_t omit_cache : 3;
-		uint8_t : 5;
+		uint8_t trigger_prefetch : 1;
+		uint8_t : 4;
 	};
 
 	const static uint MAX_SIZE = CACHE_SECTOR_SIZE;
@@ -59,6 +59,7 @@ struct MemoryRequest
 		uint16_t data_u16;
 		uint32_t data_u32;
 		uint64_t data_u64;
+		uint8_t  prefetch_offsets[8];
 	};
 
 	MemoryRequest() : paddr(0) {}

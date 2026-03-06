@@ -143,6 +143,11 @@ inline vec2 mix(const vec2& a, const vec2& b, float t)
 	return t * (b - a) + a;
 }
 
+inline vec2 mod(const vec2& a, const vec2& b)
+{
+	return vec2(mod(a.x, b.x), mod(a.y, b.y));
+}
+
 #ifdef RTM_POW
 inline vec2 pow(const vec2& a, const vec2& b)
 {

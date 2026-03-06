@@ -68,6 +68,13 @@ inline float rcp(float input)
 	#endif
 }
 
+inline float mod(float a, float b)
+{
+	float quo = a / b;
+	quo = (int32_t)quo * b;
+	return a - quo;
+}
+
 //only valid to 3.2 digits and for -2*PI to 2*PI
 inline static float cos_32s(float x)
 {
