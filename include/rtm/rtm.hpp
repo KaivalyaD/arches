@@ -26,6 +26,8 @@
 #include "ftb.hpp"
 #include "qtb.hpp"
 
+#include "texture.hpp"
+
 #include "bvh.hpp"
 #include "nvcwbvh.hpp"
 #include "hecwbvh.hpp"

@@ -18,4 +18,9 @@ public:
 	uint32_t& operator[](int i) { return e[i]; }
 };
 
+inline uvec2 operator+(const uvec2& a, const uvec2& b)
+{
+	return uvec2(a[0] + b[0], a[1] + b[1]);
+}
+
 }

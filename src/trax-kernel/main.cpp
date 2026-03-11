@@ -46,7 +46,7 @@ static std::atomic_uint prim_steps = 0;
 
 inline static void kernel(const TRaXKernelArgs& args)
 {
-	constexpr uint32_t SPP = 256;
+	constexpr uint32_t SPP = 1;
 	constexpr uint TILE_X = 4;
 	constexpr uint TILE_Y = 8;
 	constexpr uint TILE_SIZE = TILE_X * TILE_Y;
@@ -104,13 +104,28 @@ inline static void kernel(const TRaXKernelArgs& args)
 	#if defined(__riscv) && (TRAX_USE_RT_CORE)
 		_traceray<0x0u>(index, ray, hit);
 	#else
-		intersect(args.nodes, args.ftbs, ray, hit, stats);
+		intersect(args.nodes, args.ft_blocks, ray, hit, stats);
 	#endif
 
 		if(hit.t < ray.t_max)
 		{
-			uint hash = rtm::RNG::hash(hit.id) | 0xff'00'00'00;
-			args.framebuffer[fb_index] = hash;
+			uint32_t mat_id = args.material_indices[hit.id];
+			rtm::Material& mat = args.materials[mat_id];
+			rtm::uvec3 tci = args.tex_coord_indices[hit.id];
+			rtm::vec2 tc = args.tex_coords[tci[0]] * hit.bc[0] + args.tex_coords[tci[1]] * hit.bc[1] + args.tex_coords[tci[2]] * (1.0f - hit.bc[0] - hit.bc[1]);
+
+			rtm::vec3 albedo;
+			if(mat.use_am)
+			{
+				albedo = mat.albedo_texture.sample(tc);
+			}
+			else
+			{
+				albedo = rtm::vec3(1.0f, 0.0f, 1.0f);
+			}
+
+			//args.framebuffer[fb_index] = rtm::RNG::hash(mat.use_am) | 0xff000000;
+			args.framebuffer[fb_index] = encode_pixel(albedo);
 		}
 		else
 		{
@@ -165,12 +180,7 @@ int main()
 	kernel(*(const TRaXKernelArgs*)TRAX_KERNEL_ARGS_ADDRESS);
 	return 0;
 }
-
 #else
-#define STB_IMAGE_IMPLEMENTATION
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "stbi/stb_image.h"
-#include "stbi/stb_image_write.h"
 
 // #include <Windows.h>
 int main(int argc, char* argv[])
@@ -284,28 +294,34 @@ int main(int argc, char* argv[])
 	printf("\n\n");
 #endif
 	//6909.8 //5259.9
-	rtm::CWBVH bvh(mesh, bvh_cache_path.c_str(), 0, false);
+	rtm::CWBVH bvh(mesh, bvh_cache_path.c_str(), 2, false);
 	args.nodes = bvh.nodes.data();
 
 #if USE_HECWBVH_V1
 	args.ftbs = (rtm::FTB*)args.nodes;
 #else
-	args.ftbs = bvh.ftbs.data();
+	args.ft_blocks = bvh.ftbs.data();
 #endif
 
 	std::vector<rtm::Ray> rays(args.framebuffer_size);
 	if(args.pregen_rays)
 	{
 		std::string ray_file = scene_name + "-" + std::to_string(args.framebuffer_width) + "-" + std::to_string(pregen_bounce) + ".rays";
-		pregen_rays(args.nodes, args.ftbs, mesh, args.framebuffer_width, args.framebuffer_height, args.camera, pregen_bounce, rays);
+		pregen_rays(args.nodes, args.ft_blocks, mesh, args.framebuffer_width, args.framebuffer_height, args.camera, pregen_bounce, rays);
 		args.rays = rays.data();
 	}
 
-	std::vector<rtm::Triangle> tris;
-	mesh.get_triangles(tris);
-	args.tris = tris.data();
+	args.vertex_indices = mesh.vertex_indices.data();
+	args.normal_indices = mesh.normal_indices.data();
+	args.tex_coord_indices = mesh.tex_coord_indices.data();
 
-	reset_fchthrd();
+	args.vertices = mesh.vertices.data();
+	args.normals = mesh.normals.data();
+	args.tex_coords = mesh.tex_coords.data();
+
+	args.material_indices = mesh.material_indices.data();
+	args.materials = mesh.materials.data();
+
 	printf("\nStarting Taveral\n");
 	auto start = std::chrono::high_resolution_clock::now();
 

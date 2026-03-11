@@ -4,6 +4,7 @@
 #include "vec3.hpp"
 #include "uvec3.hpp"
 #include "triangle.hpp"
+#include "texture.hpp"
 
 #ifndef __riscv
 #include <vector>
@@ -13,9 +14,31 @@
 #include <map>
 #include <set>
 #include <unordered_set>
+#include <unordered_map>
 #include <deque>
 
 namespace rtm {
+
+struct Material
+{
+	enum
+	{
+		EMISSIVE,
+		LAMBERTIAN,
+		MICROFACET,
+	};
+
+	uint8_t model{LAMBERTIAN};
+	uint8_t use_nm{0};
+	uint8_t use_am{0};
+	uint8_t use_rm{0};
+	uint8_t use_mm{0};
+	Texture2D albedo_texture;
+	rtm::vec3 albedo;
+	float roughness;
+	float metalness;
+	float ior;
+};
 
 class Mesh
 {
@@ -33,11 +56,15 @@ public:
 	std::vector<uint> material_indices;
 	std::vector<std::string> material_names;
 	std::string mtl_lib;
+	
+	std::vector<Texture2D> textures;
+	std::vector<Material> materials;
 
 public:
 	Mesh(std::string file_path) : mtl_lib("")
 	{
  		load_obj(file_path.c_str());
+		load_mtl(swap_path(mtl_lib, "../../../datasets/"), "../../../datasets/textures/");
 	}
 
 	static inline rtm::vec2 read_vec2(char* line)
@@ -78,11 +105,57 @@ public:
 		return v;
 	}
 
+	static inline uint read_uint(char* data, size_t& index)
+	{
+		uint v;
+
+		uint start = index;
+		while(data[index] != ' ' && data[index] != '\n') index++;
+		char c = data[index];
+		data[index] = '\0';
+		v = std::atoi(&data[start]);
+		data[index] = c;
+
+		return v;
+	}
+
+	static inline float read_float(char* data, size_t& index)
+	{
+		float v;
+
+		uint start = index;
+		while(data[index] != ' ' && data[index] != '\n') index++;
+		char c = data[index];
+		data[index] = '\0';
+		v = std::atof(&data[start]);
+		data[index] = c;
+
+		return v;
+	}
+
+	static inline std::string read_str(char* data, size_t& index)
+	{
+		std::string str = "";
+		while(data[index] != '\n')
+		{
+			str += data[index];
+			index++;
+		}
+		if(str.back() == '\r') str.pop_back();
+		return str;
+	}
+
 	static inline std::string read_str(char* data)
 	{
 		std::string str = data;
 		while(str.back() == '\n' || str.back() == '\r') str.pop_back();
 		return str;
+	}
+
+	static inline void consume_line(char* data, size_t& index)
+	{
+		while(data[index] != '\n') index++;
+		index++; //consume endline
 	}
 
 	static inline void read_face(char* line, rtm::uvec3& vrt_inds, rtm::uvec3& txcd_inds, rtm::uvec3& nrml_inds)
@@ -263,6 +336,233 @@ public:
 		printf("Mesh: Size: %.1f MiB\n", ((float)sizeof(rtm::vec3) * vertices.size() + (float)sizeof(rtm::uvec3) * vertex_indices.size()) / (1 << 20));
 		printf("Mesh: Triangles: %d\n", vertex_indices.size());
 		printf("Mesh: Vertices: %d\n", vertices.size());
+
+		return true;
+	}
+
+
+	static inline std::string swap_path(std::string current_path, std::string new_path)
+	{
+		int i = 0;
+		for(i = current_path.size() - 2; i >= 0; --i)
+			if(current_path.at(i) == '/')
+				break;
+
+		return new_path + current_path.substr(i + 1);;
+	}
+
+	static inline std::string to_string(rtm::vec3 v)
+	{
+		return std::to_string(v[0]) + " " + std::to_string(v[1]) + " " + std::to_string(v[2]);
+	}
+
+	bool load_mtl(std::string file_path, std::string texture_path)
+	{
+		printf("Loading: %s\r", file_path.c_str());
+
+		std::ifstream is(file_path);
+		if(!is.is_open()) return false;
+
+		is.seekg(0, std::ios_base::end);
+		std::size_t size = is.tellg();
+		is.seekg(0, std::ios_base::beg);
+
+		std::vector<char> vec(size);
+		is.read((char*)&vec[0], size);
+		vec.push_back('\n');
+		is.close();
+
+		char* data = vec.data();
+		size = vec.size() - 1;
+
+		//simple hashes for switch statement
+		constexpr uint8_t newmtl = 'n' + 'e';
+
+		constexpr uint8_t Ns = 'N' + 's';
+		constexpr uint8_t Ka = 'K' + 'a';
+		constexpr uint8_t Kd = 'K' + 'd';
+		constexpr uint8_t Ks = 'K' + 's';
+		constexpr uint8_t Ke = 'K' + 'e';
+		constexpr uint8_t Ni = 'N' + 'i';
+
+		constexpr uint8_t d = 'd' + ' ';
+		constexpr uint8_t illum = 'i' + 'l';
+
+		constexpr uint8_t map_x = 'm' + 'a';
+		constexpr uint8_t refl = 'r' + 'e';
+
+		std::unordered_map<std::string, uint> texture_index_map;
+		std::unordered_map<std::string, uint> material_index_map;
+		textures.reserve(64);
+
+		size_t index = 0;
+		size_t line_number = 0;
+		while(index < size)
+		{
+			if(data[index] == '\0')
+				break;
+
+			if(data[index] == '\n')
+			{
+				index++;
+				line_number++;
+				continue;
+			}
+
+			if(data[index] == '#')
+			{
+				consume_line(data, index);
+				line_number++;
+				continue;
+			}
+
+			//simple hash of first two characters on the line
+			uint8_t type = data[index] + data[index + 1];
+
+			//advance to start of data
+			while(data[index] != ' ') index++;
+			while(data[index] == ' ') index++;
+
+			switch(type)
+			{
+			case newmtl:
+			{
+				material_index_map[read_str(data, index)] = materials.size();
+				materials.emplace_back();
+				break;
+			}
+
+			case Ns:
+			{
+				float ns = read_vec3(data)[0];
+				float roughness = 1.0f - sqrtf(ns / 1000.0f);
+				if(!materials.back().use_rm)
+					materials.back().roughness = roughness;
+				break;
+			}
+
+			case Kd:
+			{
+				rtm::vec3 kd = read_vec3(data);
+				if(!materials.back().use_am)
+					materials.back().albedo = kd;
+				break;
+			}
+
+			case Ke:
+			{
+				rtm::vec3 ke = read_vec3(data);
+				if(rtm::length2(ke) > 0.0f)
+				{
+					materials.back().model = Material::EMISSIVE;
+					materials.back().albedo = ke;
+				}
+				break;
+			}
+
+			case illum: //na
+			{
+				uint model = read_uint(data, index);
+				if(materials.back().model == Material::EMISSIVE) break;
+				switch(model)
+				{
+				case 1: //diffuse
+					materials.back().model = Material::LAMBERTIAN;
+					break;
+				case 2: //dielectric
+					materials.back().model = Material::MICROFACET;
+					if(!materials.back().use_mm)
+						materials.back().metalness = 0.0f;
+					break;
+				case 3: //metalic
+					materials.back().model = Material::MICROFACET;
+					if(!materials.back().use_mm)
+						materials.back().metalness = 1.0f;
+					break;
+				default:
+					materials.back().model = Material::LAMBERTIAN;
+					break;
+				}
+				break;
+			}
+
+			case map_x: //na
+			{
+				if(data[index - 2] == 'd') //map_Kd
+				{
+					std::string str = swap_path(read_str(data, index), texture_path);
+					materials.back().albedo_texture = Texture2D(str);
+					materials.back().use_am = 1;
+				}
+				//else if(data[index - 2] == 's') //map_Ns
+				//{
+				//	std::string str = swap_path(read_str(data, index), texture_path);
+				//	materials.back().texture.add(LDRTexture(str), 3);
+				//	materials.back().use_rm = 1;
+				//}
+				//else if(data[index - 2] == 'l') //map_refl
+				//{
+				//	std::string str = swap_path(read_str(data, index), texture_path);
+				//	materials.back().texture.add(LDRTexture(str), 7);
+				//	materials.back().use_mm = 1;
+				//}
+				//else if(data[index - 2] == 'p') //map_Bump
+				//{
+				//	if(data[index] == '-')
+				//	{
+				//		index += 4;
+				//		while(data[index++] != ' ');
+				//	}
+
+				//	std::string str = swap_path(read_str(data, index), texture_path);
+				//	materials.back().texture.add(LDRTexture(str), 4);
+				//	materials.back().use_nm = 1;
+				//}
+				break;
+			}
+
+		#if 0
+			case refl:
+			{
+				std::string str = swap_path(read_str(data, index), texture_path);
+				if(texture_index_map.find(str) == texture_index_map.end())
+				{
+					texture_index_map[str] = textures.size();
+					textures.emplace_back(str);
+				}
+				materials.back().metalness_index = texture_index_map[str];
+				break;
+			}
+		#endif
+
+
+			case Ks: //na
+			case Ka: //na
+			case Ni: //na
+			case d:  //na
+				break;
+
+			default:
+				printf("\nInvalid line: %lld\n", line_number);
+				break;
+			}
+
+			consume_line(data, index);
+			line_number++;
+		}
+
+		std::vector<uint> material_reassignment_map(material_names.size());
+		for(uint i = 0; i < material_names.size(); ++i)
+		{
+			std::string name = material_names[i];
+			uint new_index = material_index_map[name];
+			material_reassignment_map[i] = new_index;
+		}
+
+		for(uint i = 0; i < material_indices.size(); ++i)
+			material_indices[i] = material_reassignment_map[material_indices[i]];
+
+		printf("Loaded: %s \n", file_path.c_str());
 
 		return true;
 	}
