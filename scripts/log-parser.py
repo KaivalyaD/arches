@@ -39,6 +39,10 @@ with open(log_file_name) as f:
                 data[i].append(float(re.findall(r'[\d]*[.][\d]+', line)[0]))
 
 
+print(f"Total Cycles found: {len(cycles)}")
+for i in range(len(keys)):
+    print(f"Key '{keys[i]}' found {len(data[i])} times")
+
 show_unsmoothed = True
 if show_unsmoothed:
     for i in range(len(keys)):
@@ -49,13 +53,33 @@ kernel_size = 5
 kernel = np.array(gauss(kernel_size, 5))
 kernel = kernel / kernel.sum()
 
+# for i in range(len(keys)):
+#     if len(data[i]) == len(cycles):
+#         plt.plot(cycles, np.convolve(data[i], kernel, mode='same'), colors[i], label=keys[i])
+
 for i in range(len(keys)):
-    if len(data[i]) == len(cycles):
-        plt.plot(cycles, np.convolve(data[i], kernel, mode='same'), colors[i], label=keys[i])
+    # determine the shortest length to keep (x, y) in sync
+    min_len = min(len(data[i]), len(cycles))
+    
+    if min_len > 0:
+        # slice both to min_len so (x, y) match perfectly
+        x = cycles[:min_len]
+        y = data[i][:min_len]
+        
+        # plot unsmoothed (faded)
+        plt.plot(x, y, colors[i], alpha=0.125)
+        
+        # plot smoothed (solid with label)
+        smoothed = np.convolve(y, kernel, mode='same')
+        plt.plot(x, smoothed, colors[i], label=keys[i])
+    else:
+        print(f"Skipping {keys[i]} - no data matches found.")
 
 plt.legend(loc="upper right")
 plt.ylabel(ylabel)
 plt.xlabel('Time (cycles)')
 plt.yscale('log')
 plt.grid()
-plt.show()
+plt.savefig("simulation_results.png") # save instead of show
+print("Plot saved to simulation_results.png")
+#plt.show()

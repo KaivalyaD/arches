@@ -7,8 +7,9 @@
 # objs
 datasets
 
-# build
+# directories
 build
+venv
 
 ## log info
 *_log.txt
