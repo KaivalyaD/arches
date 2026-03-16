@@ -62,12 +62,12 @@ public:
 		return request.port;
 	}
 
-	paddr_t get_partition(paddr_t paddr)
+	paddr_t get_partition(paddr_t paddr) const
 	{
 		return paddr / _partition_stride % _num_partitions;
 	}
 
-	paddr_t strip_partition_bits(paddr_t paddr)
+	paddr_t strip_partition_bits(paddr_t paddr) const
 	{
 		return (paddr / _partition_stride / _num_partitions) * _partition_stride + (paddr % _partition_stride);
 	}

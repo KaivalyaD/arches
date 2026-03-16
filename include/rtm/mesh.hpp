@@ -6,17 +6,6 @@
 #include "triangle.hpp"
 #include "texture.hpp"
 
-#ifndef __riscv
-#include <vector>
-#include <string>
-#include <fstream>
-#include <cassert>
-#include <map>
-#include <set>
-#include <unordered_set>
-#include <unordered_map>
-#include <deque>
-
 namespace rtm {
 
 struct Material
@@ -29,16 +18,31 @@ struct Material
 	};
 
 	uint8_t model{LAMBERTIAN};
-	uint8_t use_nm{0};
-	uint8_t use_am{0};
-	uint8_t use_rm{0};
-	uint8_t use_mm{0};
+	uint8_t use_nm : 1;
+	uint8_t use_am : 1;
+	uint8_t use_rm : 1;
+	uint8_t use_mm : 1;
 	Texture2D albedo_texture;
 	rtm::vec3 albedo;
 	float roughness;
 	float metalness;
 	float ior;
 };
+
+}
+
+#ifndef __riscv
+#include <vector>
+#include <string>
+#include <fstream>
+#include <cassert>
+#include <map>
+#include <set>
+#include <unordered_set>
+#include <unordered_map>
+#include <deque>
+
+namespace rtm {
 
 class Mesh
 {
@@ -393,7 +397,6 @@ public:
 
 		std::unordered_map<std::string, uint> texture_index_map;
 		std::unordered_map<std::string, uint> material_index_map;
-		textures.reserve(64);
 
 		size_t index = 0;
 		size_t line_number = 0;
