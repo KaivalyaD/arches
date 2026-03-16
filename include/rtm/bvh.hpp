@@ -6,6 +6,7 @@
 #include "ftb.hpp"
 
 #ifndef __riscv
+#include <chrono>
 #include <vector>
 #include <deque>
 #include <algorithm>

@@ -126,7 +126,7 @@ typedef Units::UnitCache UnitL1Cache;
 typedef rtm::FTB PrimBlocks;
 typedef Units::TRaX::UnitRTCore<rtm::CWBVH::Node, PrimBlocks> UnitRTCore;
 
-static TRaXKernelArgs initilize_buffers(uint8_t* main_memory, paddr_t& heap_address, const SimulationConfig& sim_config, uint page_size)
+static TRaXKernelArgs initilize_buffers(Units::UnitMainMemoryBase** drams, const Units::UnitCrossbar& xbar, paddr_t& heap_address, const SimulationConfig& sim_config, uint page_size)
 {
 	std::string scene_name = sim_config.get_string("scene-name");
 	std::string project_folder = get_project_folder_path();
@@ -159,22 +159,42 @@ static TRaXKernelArgs initilize_buffers(uint8_t* main_memory, paddr_t& heap_addr
 	#else
 		pregen_rays(&bvh.nodes[0], &bvh.ftbs[0], mesh, args.framebuffer_width, args.framebuffer_height, args.camera, pregen_bounce, rays);
 	#endif
-		args.rays = write_vector(main_memory, 256, rays, heap_address);
+		args.rays = write_vector(drams, xbar, 256, rays, heap_address);
 	}
 
-	args.nodes = write_vector(main_memory, 256, bvh.nodes, heap_address);
+	args.nodes = write_vector(drams, xbar, 256, bvh.nodes, heap_address);
 
 #if USE_HECWBVH_V1
 	args.ftbs = (rtm::FTB*)args.nodes;
 #else 
-	args.ftbs = write_vector(main_memory, 256, bvh.ftbs, heap_address);
+	args.ft_blocks = write_vector(drams, xbar, 256, bvh.ftbs, heap_address);
 #endif
 
-	std::vector<rtm::Triangle> tris;
-	mesh.get_triangles(tris);
-	args.tris = write_vector(main_memory, 256, tris, heap_address);
+	args.vertex_indices = write_vector(drams, xbar, 256, mesh.vertex_indices, heap_address);
+	args.normal_indices = write_vector(drams, xbar, 256, mesh.normal_indices, heap_address);
+	args.tex_coord_indices = write_vector(drams, xbar, 256, mesh.tex_coord_indices, heap_address);
 
-	std::memcpy(main_memory + TRAX_KERNEL_ARGS_ADDRESS, &args, sizeof(TRaXKernelArgs));
+	args.vertices = write_vector(drams, xbar, 256, mesh.vertices, heap_address);
+	args.normals = write_vector(drams, xbar, 256, mesh.normals, heap_address);
+	args.tex_coords = write_vector(drams, xbar, 256, mesh.tex_coords, heap_address);
+
+	args.material_indices = write_vector(drams, xbar, 256, mesh.material_indices, heap_address);
+
+	for(uint32_t i = 0; i < mesh.materials.size(); ++i)
+	{
+		Texture2D& tex = mesh.materials[i].albedo_texture;
+		Texture2D::Texel* dev_tex = write_array(drams, xbar, 256, tex.texels, tex.width * tex.height, heap_address);
+		free(tex.texels);
+		tex.texels = dev_tex;
+	}
+
+	args.materials = write_vector(drams, xbar, 256, mesh.materials, heap_address);
+
+	for(uint32_t i = 0; i < mesh.materials.size(); ++i)
+		mesh.materials[i].albedo_texture.texels = nullptr;
+
+	size_t temp = TRAX_KERNEL_ARGS_ADDRESS;
+	write_array(drams, xbar, 256, (uint8_t*)&args, sizeof(TRaXKernelArgs), temp);
 	return args;
 }
 
@@ -471,29 +491,28 @@ static void run_sim_trax(SimulationConfig& sim_config)
 	simulator.new_unit_group();
 
 	std::vector<uint8_t> vec_mem;
-	vec_mem.resize(1792 << 20);
+	vec_mem.resize(256 << 20);
 
-	uint8_t* device_mem = vec_mem.data();
-	paddr_t heap_address = elf.load(device_mem);
-	TRaXKernelArgs kernel_args = initilize_buffers(device_mem, heap_address, sim_config, partition_stride);
+	paddr_t heap_address = elf.load(vec_mem.data());
+	for(uint addr = 0; addr < heap_address; addr += partition_stride)
+		drams[xbar.get_partition(addr)]->direct_write(vec_mem.data() + addr, partition_stride, xbar.strip_partition_bits(addr));
+
+	TRaXKernelArgs kernel_args = initilize_buffers((Units::UnitMainMemoryBase**)drams.data(), xbar, heap_address, sim_config, partition_stride);
 	heap_address = align_to(partition_stride, heap_address);
 
-	for(uint addr = 0; addr < heap_address; addr += partition_stride)
-		drams[xbar.get_partition(addr)]->direct_write(device_mem + addr, partition_stride, xbar.strip_partition_bits(addr));
+	//bool warm_l2 = false;
+	//if(warm_l2)
+	//{
+	//	paddr_t start = (paddr_t)kernel_args.nodes & ~(1 - partition_stride);
+	//	paddr_t end = start + l2_config.size * num_partitions;
+	//	for(paddr_t block_addr = end - l2_config.block_size; block_addr >= start; block_addr -= l2_config.block_size)
+	//		l2s[xbar.get_partition(block_addr)]->direct_write(xbar.strip_partition_bits(block_addr), device_mem + block_addr);
+	//}
 
-	bool warm_l2 = false;
-	if(warm_l2)
-	{
-		paddr_t start = (paddr_t)kernel_args.nodes & ~(1 - partition_stride);
-		paddr_t end = start + l2_config.size * num_partitions;
-		for(paddr_t block_addr = end - l2_config.block_size; block_addr >= start; block_addr -= l2_config.block_size)
-			l2s[xbar.get_partition(block_addr)]->direct_write(xbar.strip_partition_bits(block_addr), device_mem + block_addr);
-	}
-
-	bool deserialize_l2 = false, serialize_l2 = !deserialize_l2;
-	if(deserialize_l2)
-		for(uint i = 0; i < num_partitions; ++i)
-			serialize_l2 = !l2s[i]->deserialize("l2-p" + std::to_string(i) + ".bin", *drams[i]);
+	//bool deserialize_l2 = false, serialize_l2 = !deserialize_l2;
+	//if(deserialize_l2)
+	//	for(uint i = 0; i < num_partitions; ++i)
+	//		serialize_l2 = !l2s[i]->deserialize("l2-p" + std::to_string(i) + ".bin", *drams[i]);
 
 	Units::UnitAtomicRegfile atomic_regs(num_tms);
 	simulator.register_unit(&atomic_regs);
@@ -560,7 +579,7 @@ static void run_sim_trax(SimulationConfig& sim_config)
 	#if TRAX_USE_RT_CORE
 		rtc_config.num_clients = num_tps;
 		rtc_config.node_base_addr = (paddr_t)kernel_args.nodes;
-		rtc_config.tri_base_addr = (paddr_t)kernel_args.ftbs;
+		rtc_config.tri_base_addr = (paddr_t)kernel_args.ft_blocks;
 		rtc_config.cache = l1ds.back();
 		rtc_config.cache_port = num_tps;
 		rtc_config.cache_port_stride = num_tps / l1d_config.num_banks;
@@ -578,7 +597,7 @@ static void run_sim_trax(SimulationConfig& sim_config)
 		Units::UnitTP::Configuration tp_config;
 		tp_config.tm_index = tm_index;
 		tp_config.stack_size = stack_size;
-		tp_config.cheat_memory = device_mem;
+		tp_config.cheat_memory = vec_mem.data();
 		tp_config.unique_mems = &mem_lists.back();
 		tp_config.unique_sfus = &sfu_lists.back();
 		tp_config.num_threads = num_threads;
@@ -653,19 +672,19 @@ static void run_sim_trax(SimulationConfig& sim_config)
 
 	auto stop = std::chrono::high_resolution_clock::now();
 
-	for(uint addr = 0; addr < heap_address; addr += partition_stride)
-		drams[xbar.get_partition(addr)]->direct_read(device_mem + addr, partition_stride, xbar.strip_partition_bits(addr));
+	for(uint addr = 0; addr < (256 << 20); addr += partition_stride)
+		drams[xbar.get_partition(addr)]->direct_read(vec_mem.data() + addr, partition_stride, xbar.strip_partition_bits(addr));
 
-	if(serialize_l2)
-		for(uint i = 0; i < num_partitions; ++i)
-			l2s[i]->serialize("l2-p" + std::to_string(i) + ".bin");
+	//if(serialize_l2)
+	//	for(uint i = 0; i < num_partitions; ++i)
+	//		l2s[i]->serialize("l2-p" + std::to_string(i) + ".bin");
 
 	cycles_t frame_cycles = simulator.current_cycle;
 	double frame_time = frame_cycles / core_clock;
 	double frame_time_ns = frame_time * 1e9;
 	double simulation_time = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count() / 1000.0;
 
-	tp_log.print_profile(device_mem);
+	tp_log.print_profile(vec_mem.data());
 
 	float total_power = 0.0f;
 	for(auto& dram : drams)
@@ -722,7 +741,7 @@ static void run_sim_trax(SimulationConfig& sim_config)
 	printf("MSIPS: %.2f\n", simulator.current_cycle * tps.size() / simulation_time / 1'000'000.0);
 
 	stbi_flip_vertically_on_write(true);
-	stbi_write_png("out.png", (int)kernel_args.framebuffer_width, (int)kernel_args.framebuffer_height, 4, device_mem + (size_t)kernel_args.framebuffer, 0);
+	stbi_write_png("out.png", (int)kernel_args.framebuffer_width, (int)kernel_args.framebuffer_height, 4, vec_mem.data() + (size_t)kernel_args.framebuffer, 0);
 
 	for(auto& tp : tps) delete tp;
 	for(auto& sfu : sfus) delete sfu;

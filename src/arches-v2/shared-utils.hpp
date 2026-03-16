@@ -1,3 +1,4 @@
+
 #pragma once
 #include "stdafx.hpp"
 
@@ -35,7 +36,7 @@ std::string get_project_folder_path()
 }
 
 template <typename T>
-static T* write_array(Units::UnitMainMemoryBase* main_memory, size_t alignment, T* data, size_t size, paddr_t& heap_address)
+static T* write_array(Units::UnitMainMemoryBase* main_memory, size_t alignment, const T* data, size_t size, paddr_t& heap_address)
 {
 	paddr_t array_address = align_to(alignment, heap_address);
 	heap_address = array_address + size * sizeof(T);
@@ -44,13 +45,13 @@ static T* write_array(Units::UnitMainMemoryBase* main_memory, size_t alignment, 
 }
 
 template <typename T>
-static T* write_vector(Units::UnitMainMemoryBase* main_memory, size_t alignment, std::vector<T> v, paddr_t& heap_address)
+static T* write_vector(Units::UnitMainMemoryBase* main_memory, size_t alignment, const std::vector<T>& v, paddr_t& heap_address)
 {
 	return write_array(main_memory, alignment, v.data(), v.size(), heap_address);
 }
 
 template <typename T>
-static T* write_array(uint8_t* main_memory, size_t alignment, T* data, size_t size, paddr_t& heap_address)
+static T* write_array(uint8_t* main_memory, size_t alignment, const T* data, size_t size, paddr_t& heap_address)
 {
 	paddr_t array_address = align_to(alignment, heap_address);
 	heap_address = array_address + size * sizeof(T);
@@ -59,9 +60,25 @@ static T* write_array(uint8_t* main_memory, size_t alignment, T* data, size_t si
 }
 
 template <typename T>
-static T* write_vector(uint8_t* main_memory, size_t alignment, std::vector<T> v, paddr_t& heap_address)
+static T* write_vector(uint8_t* main_memory, size_t alignment, const std::vector<T>& v, paddr_t& heap_address)
 {
 	return write_array(main_memory, alignment, v.data(), v.size(), heap_address);
+}
+
+template <typename T>
+static T* write_array(Units::UnitMainMemoryBase** drams,  const Units::UnitCrossbar& xbar, size_t alignment, const T* data, size_t size, paddr_t& heap_address)
+{
+	paddr_t array_address = align_to(alignment, heap_address);
+	heap_address = array_address + size * sizeof(T);
+	for(uint i = 0; i < size * sizeof(T); ++i)
+		drams[xbar.get_partition(array_address + i)]->direct_write((uint8_t*)data + i, 1, xbar.strip_partition_bits(array_address + i));
+	return (T*)(array_address);
+}
+
+template <typename T>
+static T* write_vector(Units::UnitMainMemoryBase** drams, const Units::UnitCrossbar& xbar, size_t alignment, const std::vector<T>& v, paddr_t& heap_address)
+{
+	return write_array(drams, xbar, alignment, v.data(), v.size(), heap_address);
 }
 
 template <class T, class L>

@@ -19,32 +19,57 @@ public:
 	int32_t width;
 	int32_t height;
 	int32_t comp;
-#ifndef __riscv
-	std::vector<Texel> texels;
-#else
 	Texel* texels;
-#endif
 
 public:
-	Texture2D() = default;
+	Texture2D() : texels(nullptr) {};
 #ifndef __riscv
 	Texture2D(std::string filename)
 	{
 		printf("Loading: %s\r", filename.c_str());
 		stbi_set_flip_vertically_on_load(true);
 
-		stbi_uc* data = stbi_load(filename.c_str(), &width, &height, &comp, 0);
+		stbi_uc* data = stbi_load(filename.c_str(), &width, &height, &comp, 4);
 		if(data)
 		{
-			texels.resize(width * height);
-			for(uint i = 0; i < width * height; ++i)
-				for(uint c = 0; c < comp; ++c)
-					texels[i].channel[c] = data[i * comp + c];
+			uint32_t size = width * height;
+			texels = (Texel*)malloc(sizeof(Texel) * size);
+			for(uint32_t i = 0; i < size; ++i)
+				for(uint32_t j = 0; j < comp; ++j)
+					texels[i].channel[j] = data[i * comp + j];
 
 			stbi_image_free(data);
 			printf("Loaded: %s \n", filename.c_str());
 		}
-		else printf("Failed: %s \n", filename.c_str());
+		else
+		{
+			texels = nullptr;
+			printf("Failed: %s \n", filename.c_str());
+		}
+	}
+
+	Texture2D(const Texture2D& other)
+	{
+		memcpy(this, &other, sizeof(Texture2D));
+		uint32_t size = sizeof(Texel) * width * height;
+		texels = (Texel*)malloc(size);
+		memcpy(texels, other.texels, size);
+	}
+
+	Texture2D& operator=(const Texture2D& other)
+	{
+		if(texels) free(texels);
+		memcpy(this, &other, sizeof(Texture2D));
+		uint32_t size = sizeof(Texel) * width * height;
+		texels = (Texel*)malloc(size);
+		memcpy(texels, other.texels, size);
+		return *this;
+	}
+
+	~Texture2D()
+	{
+		if(texels) 
+			free(texels);
 	}
 #endif
 
@@ -54,16 +79,19 @@ public:
 		if(width == 1 && height == 1) return read({0, 0});
 
 		rtm::vec2 _uv = rtm::mod(uv, rtm::vec2(1.0f)) * rtm::vec2(width, height);
-		rtm::vec3 s00 = read_nearest(_uv + rtm::vec2(-0.5f, -0.5f));
-		rtm::vec3 s10 = read_nearest(_uv + rtm::vec2(0.5f, -0.5f));
-		rtm::vec3 s01 = read_nearest(_uv + rtm::vec2(-0.5f, 0.5f));
-		rtm::vec3 s11 = read_nearest(_uv + rtm::vec2(0.5f, 0.5f));
+		return read_nearest(_uv);
 
-		rtm::vec2 ic = rtm::mod(_uv + rtm::vec2(0.5f), rtm::vec2(1.0f));
-		rtm::vec3 s0 = rtm::mix(s00, s01, ic.y);
-		rtm::vec3 s1 = rtm::mix(s10, s11, ic.y);
+		//rtm::vec2 _uv = rtm::mod(uv, rtm::vec2(1.0f)) * rtm::vec2(width, height);
+		//rtm::vec3 s00 = read_nearest(_uv + rtm::vec2(-0.5f, -0.5f));
+		//rtm::vec3 s10 = read_nearest(_uv + rtm::vec2(0.5f, -0.5f));
+		//rtm::vec3 s01 = read_nearest(_uv + rtm::vec2(-0.5f, 0.5f));
+		//rtm::vec3 s11 = read_nearest(_uv + rtm::vec2(0.5f, 0.5f));
 
-		return rtm::mix(s0, s1, ic.x);
+		//rtm::vec2 ic = rtm::mod(_uv + rtm::vec2(0.5f), rtm::vec2(1.0f));
+		//rtm::vec3 s0 = rtm::mix(s00, s01, ic.y);
+		//rtm::vec3 s1 = rtm::mix(s10, s11, ic.y);
+
+		//return rtm::mix(s0, s1, ic.x);
 	}
 
 private:
