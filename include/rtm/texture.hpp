@@ -73,46 +73,35 @@ public:
 	}
 #endif
 
-	rtm::vec3 sample(const rtm::vec2& uv) const
+	rtm::vec4 sample(const rtm::vec2& uv) const
 	{
-		if(width == 0 && height == 0) return rtm::vec3(0.0f);
-		if(width == 1 && height == 1) return read({0, 0});
-
-		rtm::vec2 _uv = rtm::mod(uv, rtm::vec2(1.0f)) * rtm::vec2(width, height);
-		//return read_nearest(_uv);
-
-		//rtm::vec2 _uv = rtm::mod(uv, rtm::vec2(1.0f)) * rtm::vec2(width, height);
-		rtm::vec3 s00 = read_nearest(_uv + rtm::vec2(-0.5f, -0.5f));
-		rtm::vec3 s10 = read_nearest(_uv + rtm::vec2(0.5f, -0.5f));
-		rtm::vec3 s01 = read_nearest(_uv + rtm::vec2(-0.5f, 0.5f));
-		rtm::vec3 s11 = read_nearest(_uv + rtm::vec2(0.5f, 0.5f));
-
-		rtm::vec2 ic = rtm::mod(_uv + rtm::vec2(0.5f), rtm::vec2(1.0f));
-		rtm::vec3 s0 = rtm::mix(s00, s01, ic.y);
-		rtm::vec3 s1 = rtm::mix(s10, s11, ic.y);
-
-		return rtm::mix(s0, s1, ic.x);
+		if(width == 0 && height == 0) return rtm::vec4(0.0f);
+		return read_nearest(uv);
 	}
 
-private:
-	rtm::vec3 read(const rtm::uvec2& iuv) const
+	rtm::uvec2 get_iuv(const rtm::vec2& uv, const rtm::vec2& offset = rtm::vec2(0.0f)) const
 	{
-		uint i = iuv[1] * width + iuv[0];
-		return rtm::vec3(texels[i].channel[0], texels[i].channel[1], texels[i].channel[2]) * (1.0f / 255.0f);
+		rtm::vec2 fuv = uv * rtm::vec2(width, height) + offset;
+		return rtm::uvec2(fuv[0], fuv[1]);
 	}
 
-	rtm::uvec2 get_nearest(const rtm::vec2& uv) const
+	Texel* get_texel_addr(const rtm::uvec2& iuv) const
 	{
-		rtm::uvec2 mv = rtm::uvec2(width, height);
-		rtm::uvec2 iuv = rtm::uvec2(uv[0], uv[1]) + mv;
-		iuv[0] = iuv[0] % mv[0]; iuv[1] = iuv[1] % mv[1];
-		return  iuv;
+		uint32_t x = iuv[0] % width;
+		uint32_t y = iuv[1] % height;
+		return &texels[y * width + x];
 	}
 
-	rtm::vec3 read_nearest(const rtm::vec2& uv) const
+	static rtm::vec4 decode_texel(const Texel& texel)
 	{
-		rtm::vec3 v = read(get_nearest(uv));
-		return v;
+		return rtm::vec4(texel.channel[0], texel.channel[1], texel.channel[2], texel.channel[3]) * (1.0f / 255.0f);
+	}
+
+	rtm::vec4 read_nearest(const rtm::vec2& uv, rtm::vec2 offset = rtm::vec2(0.0f)) const
+	{
+		rtm::uvec2 iuv = get_iuv(uv, offset);
+		Texel* texel = get_texel_addr(iuv);
+		return decode_texel(*texel);
 	}
 };
 

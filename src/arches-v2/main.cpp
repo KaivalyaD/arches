@@ -5,6 +5,7 @@
 #include "units/trax/unit-rt-core.hpp"
 #include "trax-kernel/include.hpp"
 #include "trax-kernel/intersect.hpp"
+#include "units/unit-texture.hpp"
 
 namespace Arches {
 
@@ -110,6 +111,26 @@ const static InstructionInfo isa_custom0_funct3[8] =
 
 		return mem_req;
 	}),
+	InstructionInfo(0x6, "sample2d", InstrType::CUSTOM3, Encoding::I, RegFile::FLOAT, MEM_REQ_DECL
+	{
+		Register32* fr = unit->float_regs->registers;
+
+		MemoryRequest mem_req;
+		mem_req.type = MemoryRequest::Type::STORE;
+		mem_req.size = 8;
+		mem_req.dst.push(DstReg(instr.rd, RegType::FLOAT32).u9, 9);
+		mem_req.vaddr = fr[instr.i.rs1].u32;
+
+		((float*)mem_req.data)[0] = fr[instr.i.rs1 + 1].f32;
+		((float*)mem_req.data)[1] = fr[instr.i.rs1 + 2].f32;
+
+		//fr[instr.i.rd + 0].f32 = fr[instr.i.rs1 + 1].f32;
+		//fr[instr.i.rd + 1].f32 = fr[instr.i.rs1 + 2].f32;
+		//fr[instr.i.rd + 2].f32 = 0.5f;
+		//fr[instr.i.rd + 3].f32 = 1.0f;
+
+		return mem_req;
+	}),
 };
 
 const static InstructionInfo custom0(CUSTOM_OPCODE0, META_DECL{return isa_custom0_funct3[instr.i.funct3]; });
@@ -162,6 +183,8 @@ static TRaXKernelArgs initilize_buffers(Units::UnitMainMemoryBase** drams, const
 		args.rays = write_vector(drams, xbar, 256, rays, heap_address);
 	}
 
+	args.materials = write_vector(drams, xbar, 256, mesh.materials, heap_address);
+
 	args.nodes = write_vector(drams, xbar, 256, bvh.nodes, heap_address);
 
 #if USE_HECWBVH_V1
@@ -188,7 +211,8 @@ static TRaXKernelArgs initilize_buffers(Units::UnitMainMemoryBase** drams, const
 		tex.texels = dev_tex;
 	}
 
-	args.materials = write_vector(drams, xbar, 256, mesh.materials, heap_address);
+	paddr_t mat_addr = (paddr_t)args.materials;
+	args.materials = write_vector(drams, xbar, 256, mesh.materials, mat_addr);
 
 	for(uint32_t i = 0; i < mesh.materials.size(); ++i)
 		mesh.materials[i].albedo_texture.texels = nullptr;
@@ -388,6 +412,8 @@ static void run_sim_trax(SimulationConfig& sim_config)
 
 	UnitL1Cache::PowerConfig l1d_power_config;
 
+	Units::UnitTexture::Configuration tu_config;
+
 	UnitRTCore::Configuration rtc_config;
 	rtc_config.max_rays = 64;
 	rtc_config.num_cache_ports = 4;
@@ -451,6 +477,7 @@ static void run_sim_trax(SimulationConfig& sim_config)
 	ISA::RISCV::InstructionTypeNameDatabase::get_instance()[ISA::RISCV::InstrType::CUSTOM0] = "FCHTHRD";
 	ISA::RISCV::InstructionTypeNameDatabase::get_instance()[ISA::RISCV::InstrType::CUSTOM1] = "BOXISECT";
 	ISA::RISCV::InstructionTypeNameDatabase::get_instance()[ISA::RISCV::InstrType::CUSTOM2] = "TRIISECT";
+	ISA::RISCV::InstructionTypeNameDatabase::get_instance()[ISA::RISCV::InstrType::CUSTOM3] = "SAMPLE2D";
 	ISA::RISCV::InstructionTypeNameDatabase::get_instance()[ISA::RISCV::InstrType::CUSTOM7] = "TRACERAY";
 	ISA::RISCV::isa[ISA::RISCV::CUSTOM_OPCODE0] = ISA::RISCV::TRaX::custom0;
 
@@ -461,6 +488,7 @@ static void run_sim_trax(SimulationConfig& sim_config)
 	std::vector<Units::UnitSFU*> sfus;
 	std::vector<Units::UnitThreadScheduler*> thread_schedulers;
 	std::vector<UnitRTCore*> rtcs;
+	std::vector<Units::UnitTexture*> tus;
 	std::vector<UnitL1Cache*> l1ds;
 	std::vector<std::vector<Units::UnitBase*>> unit_tables; unit_tables.reserve(num_tms);
 	std::vector<std::vector<Units::UnitSFU*>> sfu_lists; sfu_lists.reserve(num_tms);
@@ -499,6 +527,9 @@ static void run_sim_trax(SimulationConfig& sim_config)
 
 	TRaXKernelArgs kernel_args = initilize_buffers((Units::UnitMainMemoryBase**)drams.data(), xbar, heap_address, sim_config, partition_stride);
 	heap_address = align_to(partition_stride, heap_address);
+
+	for(uint addr = 0; addr < (256 << 20); addr += partition_stride)
+		drams[xbar.get_partition(addr)]->direct_read(vec_mem.data() + addr, partition_stride, xbar.strip_partition_bits(addr));
 
 	//bool warm_l2 = false;
 	//if(warm_l2)
@@ -575,6 +606,16 @@ static void run_sim_trax(SimulationConfig& sim_config)
 		//l1s_config.mem_higher_port = tm_index * 2 + 1;
 		//l1ss.push_back(new Units::UnitStreamCache(l1s_config));
 		//simulator.register_unit(l1ss.back());
+
+		tu_config.num_clients = num_tps;
+		tu_config.cache = l1ds.back();
+		tu_config.cache_port = num_tps + 1;
+		tu_config.cheat_mem = vec_mem.data();
+
+		tus.push_back(_new  Units::UnitTexture(tu_config));
+		simulator.register_unit(tus.back());
+		mem_list.push_back(tus.back());
+		unit_table[(uint)ISA::RISCV::InstrType::CUSTOM3] = tus.back();
 
 	#if TRAX_USE_RT_CORE
 		rtc_config.num_clients = num_tps;

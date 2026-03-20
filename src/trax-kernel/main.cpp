@@ -114,18 +114,18 @@ inline static void kernel(const TRaXKernelArgs& args)
 			rtm::uvec3 tci = args.tex_coord_indices[hit.id];
 			rtm::vec2 tc = args.tex_coords[tci[0]] * hit.bc[0] + args.tex_coords[tci[1]] * hit.bc[1] + args.tex_coords[tci[2]] * (1.0f - hit.bc[0] - hit.bc[1]);
 
-			rtm::vec3 albedo;
+			rtm::vec4 albedo;
 			if(mat.use_am)
 			{
-				albedo = mat.albedo_texture.sample(tc);
+				albedo = sample2d(&mat.albedo_texture, tc);
 			}
 			else
 			{
-				albedo = rtm::vec3(1.0f, 0.0f, 1.0f);
+				albedo = rtm::vec4(1.0f, 0.0f, 1.0f, 1.0f);
 			}
 
 			//args.framebuffer[fb_index] = rtm::RNG::hash(mat.use_am) | 0xff000000;
-			args.framebuffer[fb_index] = encode_pixel(albedo);
+			args.framebuffer[fb_index] = encode_pixel(rtm::vec3(albedo.x, albedo.y, albedo.z));
 		}
 		else
 		{

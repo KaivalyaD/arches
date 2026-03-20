@@ -54,7 +54,7 @@ public:
 		return return_crossbar.peek(port_index);
 	}
 
-	virtual const SFURequest& read_return(uint port_index)
+	virtual const SFURequest read_return(uint port_index)
 	{
 		return return_crossbar.read(port_index);
 	}
