@@ -29,7 +29,7 @@ public:
 		printf("Loading: %s\r", filename.c_str());
 		stbi_set_flip_vertically_on_load(true);
 
-		stbi_uc* data = stbi_load(filename.c_str(), &width, &height, &comp, 4);
+		stbi_uc* data = stbi_load(filename.c_str(), &width, &height, &comp, 0);
 		if(data)
 		{
 			uint32_t size = width * height;
@@ -79,19 +79,19 @@ public:
 		if(width == 1 && height == 1) return read({0, 0});
 
 		rtm::vec2 _uv = rtm::mod(uv, rtm::vec2(1.0f)) * rtm::vec2(width, height);
-		return read_nearest(_uv);
+		//return read_nearest(_uv);
 
 		//rtm::vec2 _uv = rtm::mod(uv, rtm::vec2(1.0f)) * rtm::vec2(width, height);
-		//rtm::vec3 s00 = read_nearest(_uv + rtm::vec2(-0.5f, -0.5f));
-		//rtm::vec3 s10 = read_nearest(_uv + rtm::vec2(0.5f, -0.5f));
-		//rtm::vec3 s01 = read_nearest(_uv + rtm::vec2(-0.5f, 0.5f));
-		//rtm::vec3 s11 = read_nearest(_uv + rtm::vec2(0.5f, 0.5f));
+		rtm::vec3 s00 = read_nearest(_uv + rtm::vec2(-0.5f, -0.5f));
+		rtm::vec3 s10 = read_nearest(_uv + rtm::vec2(0.5f, -0.5f));
+		rtm::vec3 s01 = read_nearest(_uv + rtm::vec2(-0.5f, 0.5f));
+		rtm::vec3 s11 = read_nearest(_uv + rtm::vec2(0.5f, 0.5f));
 
-		//rtm::vec2 ic = rtm::mod(_uv + rtm::vec2(0.5f), rtm::vec2(1.0f));
-		//rtm::vec3 s0 = rtm::mix(s00, s01, ic.y);
-		//rtm::vec3 s1 = rtm::mix(s10, s11, ic.y);
+		rtm::vec2 ic = rtm::mod(_uv + rtm::vec2(0.5f), rtm::vec2(1.0f));
+		rtm::vec3 s0 = rtm::mix(s00, s01, ic.y);
+		rtm::vec3 s1 = rtm::mix(s10, s11, ic.y);
 
-		//return rtm::mix(s0, s1, ic.x);
+		return rtm::mix(s0, s1, ic.x);
 	}
 
 private:
