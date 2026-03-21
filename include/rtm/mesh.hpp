@@ -67,8 +67,14 @@ public:
 public:
 	Mesh(std::string file_path) : mtl_lib("")
 	{
- 		load_obj(file_path.c_str());
-		load_mtl(swap_path(mtl_lib, "../../../datasets/"), "../../../datasets/textures/");
+ 		if(!load_obj(file_path.c_str())) {
+			printf("Mesh: failed to load mesh OBJ file %s\n", file_path.c_str());
+			return;
+		}
+		if(!load_mtl(swap_path(mtl_lib, "datasets/"), "datasets/textures/")) {
+			printf("Mesh: failed to load mesh textures or MTL file %s\n", mtl_lib);
+			return;
+		}
 	}
 
 	static inline rtm::vec2 read_vec2(char* line)

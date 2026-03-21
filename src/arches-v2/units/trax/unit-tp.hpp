@@ -31,6 +31,16 @@ private:
 				if(float_regs_pending[i])
 					return float_regs_pending[i];
 		}
+		else if(instr_info.instr_type == ISA::RISCV::InstrType::CUSTOM3) //SAMPLE2D
+		{
+			for(uint i = 0; i < 3; ++i)
+				if(float_regs_pending[instr.rs1 + i])
+					return float_regs_pending[instr.rs1 + i];
+
+			for(uint i = 0; i < 4; ++i)
+				if(float_regs_pending[instr.rd + i])
+					return float_regs_pending[instr.rd + i];
+		}
 		else if(instr_info.instr_type == ISA::RISCV::InstrType::CUSTOM7) //TRACE RAY
 		{
 			for(uint i = 0; i < sizeof(rtm::Ray) / sizeof(float); ++i)

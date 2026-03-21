@@ -114,18 +114,18 @@ inline static void kernel(const TRaXKernelArgs& args)
 			rtm::uvec3 tci = args.tex_coord_indices[hit.id];
 			rtm::vec2 tc = args.tex_coords[tci[0]] * hit.bc[0] + args.tex_coords[tci[1]] * hit.bc[1] + args.tex_coords[tci[2]] * (1.0f - hit.bc[0] - hit.bc[1]);
 
-			rtm::vec3 albedo;
+			rtm::vec4 albedo;
 			if(mat.use_am)
 			{
-				albedo = mat.albedo_texture.sample(tc);
+				albedo = sample2d(&mat.albedo_texture, tc);
 			}
 			else
 			{
-				albedo = rtm::vec3(1.0f, 0.0f, 1.0f);
+				albedo = rtm::vec4(1.0f, 0.0f, 1.0f, 1.0f);
 			}
 
 			//args.framebuffer[fb_index] = rtm::RNG::hash(mat.use_am) | 0xff000000;
-			args.framebuffer[fb_index] = encode_pixel(albedo);
+			args.framebuffer[fb_index] = encode_pixel(rtm::vec3(albedo.x, albedo.y, albedo.z));
 		}
 		else
 		{
@@ -205,6 +205,8 @@ int main(int argc, char* argv[])
 		args.camera = rtm::Camera(args.framebuffer_width, args.framebuffer_height, 12.0f, rtm::vec3(-900.6f, 150.8f, 120.74f), rtm::vec3(79.7f, 14.0f, -17.4f));
 	if(scene_name.compare("intel-sponza") == 0)
 		args.camera = rtm::Camera(args.framebuffer_width, args.framebuffer_height, 12.0f, rtm::vec3(-900.6f, 150.8f, 120.74f), rtm::vec3(79.7f, 14.0f, -17.4f));
+	if(scene_name.compare("sponza") == 0)
+		args.camera = rtm::Camera(args.framebuffer_width, args.framebuffer_height, 12.0f, rtm::vec3(0.0f, 2.0f, 0.0f), rtm::vec3(90.0f, 0.0f, -1.0f));
 	if(scene_name.compare("san-miguel") == 0)
 		args.camera = rtm::Camera(args.framebuffer_width, args.framebuffer_height, 12.0f, rtm::vec3(7.448, 1.014, 12.357), rtm::vec3(7.448 + 0.608, 1.014 + 0.026, 12.357 - 0.794));
 	if(scene_name.compare("bistro") == 0)
@@ -212,8 +214,8 @@ int main(int argc, char* argv[])
 	if(scene_name.compare("hairball") == 0)
 		args.camera = rtm::Camera(args.framebuffer_width, args.framebuffer_height, 24.0f, rtm::vec3(0.0, 0.0, 10.0), rtm::vec3(0.0f, 0.0f, 0.0f));
 
-	std::string mesh_path = "../../../datasets/" + scene_name + ".obj";
-	std::string bvh_cache_path = "../../../datasets/cache/" + scene_name + ".bvh";
+	std::string mesh_path = "datasets/" + scene_name + ".obj";
+	std::string bvh_cache_path = "datasets/cache/" + scene_name + ".bvh";
 
 	rtm::Mesh mesh(mesh_path);
 
@@ -322,7 +324,7 @@ int main(int argc, char* argv[])
 	args.material_indices = mesh.material_indices.data();
 	args.materials = mesh.materials.data();
 
-	printf("\nStarting Taveral\n");
+	printf("\nStarting Traversal\n");
 	auto start = std::chrono::high_resolution_clock::now();
 
 	std::vector<std::thread> threads;
@@ -354,7 +356,7 @@ int main(int argc, char* argv[])
 #endif
 
 	stbi_flip_vertically_on_write(true);
-	stbi_write_png("./out.png", args.framebuffer_width, args.framebuffer_height, 4, args.framebuffer, 0);
+	stbi_write_png("out.png", args.framebuffer_width, args.framebuffer_height, 4, args.framebuffer, 0);
 
 	return 0;
 }

@@ -8,7 +8,7 @@
 datasets
 
 # directories
-build
+[Bb]uild*
 venv
 
 ## log info

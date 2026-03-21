@@ -138,6 +138,8 @@ const static std::vector<SceneConfig> scene_configs =
 
 	{"intel-sponza", rtm::vec3(-900.6f, 150.8f, 120.74f), rtm::vec3(79.7f, 14.0f, -17.4f), 12.0f}, //INTEL SPONZA
 	
+	{"sponza", rtm::vec3(0.0f, 2.0f, 0.0f), rtm::vec3(90.0f, 0.0f, -1.0f), 12.0f}, // SPONZA
+	
 	{"san-miguel", rtm::vec3(7.448, 1.014, 12.357), rtm::vec3(8.056, 1.04, 11.563), 12.0f}, //SAN_MIGUEL
 	
 	{"hairball", rtm::vec3(0, 0, 10), rtm::vec3(0, 0, 0), 24.0f}, //HAIRBALL
@@ -212,10 +214,10 @@ public:
 		set_param("max-rays", 128);
 
 		//Workload
-		set_param("scene-name", "intel-sponza");
+		set_param("scene-name", "sponza");
 		set_param("framebuffer-width", 1024);
 		set_param("framebuffer-height", 1024);
-		set_param("pregen-rays", 1);
+		set_param("pregen-rays", 0);
 		set_param("pregen-bounce", 1);
 		set_param("bvh-preset", 0);
 		set_param("bvh-merging", 0);

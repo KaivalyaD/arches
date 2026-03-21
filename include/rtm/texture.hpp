@@ -21,15 +21,20 @@ public:
 	int32_t comp;
 	Texel* texels;
 
+private:
+	// Used by Arches to shallow copy textures
+	// Not to be used by kernels!!!
+	uint32_t *pTexRefCount;
+
 public:
-	Texture2D() : texels(nullptr) {};
+	Texture2D() : texels(nullptr), pTexRefCount(nullptr) {};
 #ifndef __riscv
 	Texture2D(std::string filename)
 	{
 		printf("Loading: %s\r", filename.c_str());
 		stbi_set_flip_vertically_on_load(true);
 
-		stbi_uc* data = stbi_load(filename.c_str(), &width, &height, &comp, 4);
+		stbi_uc* data = stbi_load(filename.c_str(), &width, &height, &comp, 0);
 		if(data)
 		{
 			uint32_t size = width * height;
@@ -39,80 +44,128 @@ public:
 					texels[i].channel[j] = data[i * comp + j];
 
 			stbi_image_free(data);
+
+			pTexRefCount = (uint32_t *)malloc(sizeof(uint32_t));
+			*pTexRefCount = 1;  // texture acquired first time
+			
 			printf("Loaded: %s \n", filename.c_str());
 		}
 		else
 		{
 			texels = nullptr;
+			pTexRefCount = nullptr;
 			printf("Failed: %s \n", filename.c_str());
 		}
 	}
 
-	Texture2D(const Texture2D& other)
-	{
-		memcpy(this, &other, sizeof(Texture2D));
-		uint32_t size = sizeof(Texel) * width * height;
-		texels = (Texel*)malloc(size);
-		memcpy(texels, other.texels, size);
-	}
+	// Texture2D(const Texture2D& other)
+	// {
+	// 	memcpy(this, &other, sizeof(Texture2D));
+	// 	uint32_t size = sizeof(Texel) * width * height;
+	// 	texels = (Texel*)malloc(size);
+	// 	memcpy(texels, other.texels, size);
+	// }
+	Texture2D(const Texture2D& other) : width(other.width), height(other.height), comp(other.comp), pTexRefCount(other.pTexRefCount)
+    {
+		texels = other.texels;
+		if(pTexRefCount)
+			acquire_texture_resource();
+    }
 
-	Texture2D& operator=(const Texture2D& other)
-	{
-		if(texels) free(texels);
-		memcpy(this, &other, sizeof(Texture2D));
-		uint32_t size = sizeof(Texel) * width * height;
-		texels = (Texel*)malloc(size);
-		memcpy(texels, other.texels, size);
-		return *this;
-	}
+	// Texture2D& operator=(const Texture2D& other)
+	// {
+	// 	if(texels) free(texels);
+	// 	memcpy(this, &other, sizeof(Texture2D));
+	// 	uint32_t size = sizeof(Texel) * width * height;
+	// 	texels = (Texel*)malloc(size);
+	// 	memcpy(texels, other.texels, size);
+	// 	return *this;
+	// }
+	Texture2D& operator=(const Texture2D& other) 
+    {
+        if (this == &other)
+			return *this;
+
+		// acquire ownership of other's resource
+		// this is safer than lose-first-acquire-next
+		if(other.pTexRefCount)
+			++(*other.pTexRefCount);
+
+		release_texture_resource();  // lose previous ownership
+		
+		// assign other to this
+		width = other.width;
+        height = other.height;
+        comp = other.comp;
+		texels = other.texels;
+		pTexRefCount = other.pTexRefCount;
+        return *this;
+    }
 
 	~Texture2D()
 	{
-		if(texels) 
-			free(texels);
+		release_texture_resource();
 	}
 #endif
 
-	rtm::vec3 sample(const rtm::vec2& uv) const
+	rtm::vec4 sample(const rtm::vec2& uv) const
 	{
-		if(width == 0 && height == 0) return rtm::vec3(0.0f);
-		if(width == 1 && height == 1) return read({0, 0});
-
-		rtm::vec2 _uv = rtm::mod(uv, rtm::vec2(1.0f)) * rtm::vec2(width, height);
-		return read_nearest(_uv);
-
-		//rtm::vec2 _uv = rtm::mod(uv, rtm::vec2(1.0f)) * rtm::vec2(width, height);
-		//rtm::vec3 s00 = read_nearest(_uv + rtm::vec2(-0.5f, -0.5f));
-		//rtm::vec3 s10 = read_nearest(_uv + rtm::vec2(0.5f, -0.5f));
-		//rtm::vec3 s01 = read_nearest(_uv + rtm::vec2(-0.5f, 0.5f));
-		//rtm::vec3 s11 = read_nearest(_uv + rtm::vec2(0.5f, 0.5f));
-
-		//rtm::vec2 ic = rtm::mod(_uv + rtm::vec2(0.5f), rtm::vec2(1.0f));
-		//rtm::vec3 s0 = rtm::mix(s00, s01, ic.y);
-		//rtm::vec3 s1 = rtm::mix(s10, s11, ic.y);
-
-		//return rtm::mix(s0, s1, ic.x);
+		if(width == 0 && height == 0) return rtm::vec4(0.0f);
+		return read_nearest(uv);
 	}
 
+	rtm::uvec2 get_iuv(const rtm::vec2& uv, const rtm::vec2& offset = rtm::vec2(0.0f)) const
+	{
+		rtm::vec2 fuv = uv * rtm::vec2(width, height) + offset;
+		return rtm::uvec2(fuv[0], fuv[1]);
+	}
+
+	Texel* get_texel_addr(const rtm::uvec2& iuv) const
+	{
+		uint32_t x = iuv[0] % width;
+		uint32_t y = iuv[1] % height;
+		return &texels[y * width + x];
+	}
+
+	static rtm::vec4 decode_texel(const Texel& texel)
+	{
+		return rtm::vec4(texel.channel[0], texel.channel[1], texel.channel[2], texel.channel[3]) * (1.0f / 255.0f);
+	}
+
+	rtm::vec4 read_nearest(const rtm::vec2& uv, rtm::vec2 offset = rtm::vec2(0.0f)) const
+	{
+		rtm::uvec2 iuv = get_iuv(uv, offset);
+		Texel* texel = get_texel_addr(iuv);
+		return decode_texel(*texel);
+	}
+
+#ifndef __riscv
 private:
-	rtm::vec3 read(const rtm::uvec2& iuv) const
+	void acquire_texture_resource(void)
 	{
-		uint i = iuv[1] * width + iuv[0];
-		return rtm::vec3(texels[i].channel[0], texels[i].channel[1], texels[i].channel[2]) * (1.0f / 255.0f);
+		if (!pTexRefCount)
+			return;
+		
+		(*pTexRefCount)++;
 	}
+	
+	void release_texture_resource(void)
+	{
+		if (!pTexRefCount)
+			return;
+		
+		(*pTexRefCount)--;
 
-	rtm::uvec2 get_nearest(const rtm::vec2& uv) const
-	{
-		rtm::uvec2 mv = rtm::uvec2(width, height);
-		rtm::uvec2 iuv = rtm::uvec2(uv[0], uv[1]) + mv;
-		iuv[0] = iuv[0] % mv[0]; iuv[1] = iuv[1] % mv[1];
-		return  iuv;
+		if((*pTexRefCount) <= 0)
+		{
+			if(texels)
+				free(texels);
+			
+			free(pTexRefCount);
+			texels = nullptr;
+			pTexRefCount = nullptr;
+		}
 	}
-
-	rtm::vec3 read_nearest(const rtm::vec2& uv) const
-	{
-		rtm::vec3 v = read(get_nearest(uv));
-		return v;
-	}
+#endif
 };
 
