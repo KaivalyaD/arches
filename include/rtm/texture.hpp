@@ -22,12 +22,12 @@ public:
 	Texel* texels;
 
 private:
-	// Used by Arches to shallow copy textures
-	// Not to be used by kernels!!!
-	uint32_t *pTexRefCount;
+	// allows Arches to shallow copy textures
+	// not to be used by kernels!!!
+	int32_t *pRefCount;
 
 public:
-	Texture2D() : texels(nullptr), pTexRefCount(nullptr) {};
+	Texture2D() : texels(nullptr), pRefCount(nullptr) {};
 #ifndef __riscv
 	Texture2D(std::string filename)
 	{
@@ -45,66 +45,47 @@ public:
 
 			stbi_image_free(data);
 
-			pTexRefCount = (uint32_t *)malloc(sizeof(uint32_t));
-			*pTexRefCount = 1;  // texture acquired first time
+			pRefCount = (int32_t *)malloc(sizeof(int32_t));
+			*pRefCount = 1;  // acquired first time by direct assignment
 			
 			printf("Loaded: %s \n", filename.c_str());
 		}
 		else
 		{
 			texels = nullptr;
-			pTexRefCount = nullptr;
+			pRefCount = nullptr;
 			printf("Failed: %s \n", filename.c_str());
 		}
 	}
 
-	// Texture2D(const Texture2D& other)
-	// {
-	// 	memcpy(this, &other, sizeof(Texture2D));
-	// 	uint32_t size = sizeof(Texel) * width * height;
-	// 	texels = (Texel*)malloc(size);
-	// 	memcpy(texels, other.texels, size);
-	// }
-	Texture2D(const Texture2D& other) : width(other.width), height(other.height), comp(other.comp), pTexRefCount(other.pTexRefCount)
+	Texture2D(const Texture2D& other) : width(other.width), height(other.height), comp(other.comp)
     {
+		other.acquire();
 		texels = other.texels;
-		if(pTexRefCount)
-			acquire_texture_resource();
+		pRefCount = other.pRefCount;
     }
 
-	// Texture2D& operator=(const Texture2D& other)
-	// {
-	// 	if(texels) free(texels);
-	// 	memcpy(this, &other, sizeof(Texture2D));
-	// 	uint32_t size = sizeof(Texel) * width * height;
-	// 	texels = (Texel*)malloc(size);
-	// 	memcpy(texels, other.texels, size);
-	// 	return *this;
-	// }
 	Texture2D& operator=(const Texture2D& other) 
     {
         if (this == &other)
 			return *this;
-
-		// acquire ownership of other's resource
-		// this is safer than lose-first-acquire-next
-		if(other.pTexRefCount)
-			++(*other.pTexRefCount);
-
-		release_texture_resource();  // lose previous ownership
 		
-		// assign other to this
+		// copy other members
 		width = other.width;
         height = other.height;
         comp = other.comp;
-		texels = other.texels;
-		pTexRefCount = other.pTexRefCount;
+
+		// following order is safer than 'first release, then acquire'
+		other.acquire();       // prebook ownership of new resource
+		release();             // release ownership of current resource
+		texels = other.texels; // acquire ownership of new resource
+		pRefCount = other.pRefCount;
         return *this;
     }
 
 	~Texture2D()
 	{
-		release_texture_resource();
+		release();
 	}
 #endif
 
@@ -141,29 +122,28 @@ public:
 
 #ifndef __riscv
 private:
-	void acquire_texture_resource(void)
+	void acquire(void) const
 	{
-		if (!pTexRefCount)
+		if (!pRefCount)
 			return;
 		
-		(*pTexRefCount)++;
+		(*pRefCount)++;
 	}
 	
-	void release_texture_resource(void)
+	void release(void)
 	{
-		if (!pTexRefCount)
+		if (!pRefCount)
 			return;
 		
-		(*pTexRefCount)--;
-
-		if((*pTexRefCount) <= 0)
+		(*pRefCount)--;
+		if((*pRefCount) <= 0)
 		{
 			if(texels)
 				free(texels);
-			
-			free(pTexRefCount);
 			texels = nullptr;
-			pTexRefCount = nullptr;
+
+			free(pRefCount);
+			pRefCount = nullptr;
 		}
 	}
 #endif
