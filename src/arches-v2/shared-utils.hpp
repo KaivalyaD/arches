@@ -17,10 +17,14 @@
 #include "isa/riscv.hpp"
 #include "rtm/rtm.hpp"
 
-// #include <Windows.h>
-#include <linux/limits.h>
+#if defined BUILD_PLATFORM_WINDOWS
+	#define MAX_FILENAME_LENGTH MAX_PATH
+#elif defined BUILD_PLATFORM_LINUX
+	#include <linux/limits.h>
+	#define MAX_FILENAME_LENGTH FILENAME_MAX
+#endif
 
-char full_exe_name[FILENAME_MAX];
+char full_exe_name[MAX_FILENAME_LENGTH];
 namespace Arches {
 
 void set_full_exe_name(const char *name) {

@@ -1,6 +1,15 @@
 #pragma once
 #include "stdafx.hpp"
 
+//cross platform intrinsics
+#if defined BUILD_PLATFORM_WINDOWS
+	#define popcnt64(mask) __popcnt64(mask)
+	#define rotr64(mask, n) _rotr64(mask, n)
+#elif defined BUILD_PLATFORM_LINUX
+	#define popcnt64(mask) _popcnt64(mask)
+	#define rotr64(mask, n) _lrotr(mask, n)
+#endif
+
 inline uint log2i(uint64_t in)
 {
 	uint i = 0;
@@ -34,14 +43,12 @@ inline uint clz(uint64_t mask)
 
 inline uint popcnt(uint64_t mask)
 {
-	// return __popcnt64(mask);
-	return _popcnt64(mask);
+	return popcnt64(mask);
 }
 
 inline uint64_t rotr(uint64_t mask, uint n)
 {
-	// return _rotr64(mask, n);
-	return _lrotr(mask, n);
+	return rotr64(mask, n);
 }
 
 inline uint64_t pdep(uint64_t data, uint64_t mask)

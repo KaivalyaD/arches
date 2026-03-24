@@ -1,7 +1,10 @@
 #include "riscv.hpp"
 
-// #include <intrin.h>
-#include <immintrin.h>
+#if defined BUILD_PLATFORM_WINDOWS
+	#include <intrin.h>
+#elif defined BUILD_PLATFORM_LINUX
+	#include <immintrin.h>
+#endif
 
 #include "errors.hpp"
 #include "util/bit-manipulation.hpp"
@@ -204,7 +207,7 @@ InstructionInfo const isa_SYSTEM[2] =
 	InstructionInfo(0b000000000001, "ebreak", InstrType::SYS, Encoding::I, RegFile::INT, EXEC_DECL
 	{
 		//break point
-		// __debugbreak();
+		add_breakpoint();
 	}),
 };
 
