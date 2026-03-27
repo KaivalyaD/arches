@@ -34,9 +34,10 @@ public:
 		{
 			uint32_t size = width * height;
 			texels = (Texel*)malloc(sizeof(Texel) * size);
-			for(uint32_t i = 0; i < size; ++i)
-				for(uint32_t j = 0; j < comp; ++j)
-					texels[i].channel[j] = data[i * comp + j];
+			for(uint32_t j = 0; j < height; ++j)
+				for(uint32_t i = 0; i < width; ++i)
+					for(uint32_t k = 0; k < comp; ++k)
+						get_texel_addr(rtm::uvec2(i, j))->channel[k] = data[(j * width + i) * comp + k];
 
 			stbi_image_free(data);
 			printf("Loaded: %s \n", filename.c_str());
@@ -85,11 +86,34 @@ public:
 		return rtm::uvec2(fuv[0], fuv[1]);
 	}
 
+	rtm::vec2 get_fract_uv(const rtm::vec2& uv) const
+	{
+		rtm::vec2 fuv = uv * rtm::vec2(width, height);
+		return (fuv - rtm::vec2((int32_t)fuv[0], (int32_t)fuv[1]));
+	}
+
 	Texel* get_texel_addr(const rtm::uvec2& iuv) const
 	{
 		uint32_t x = iuv[0] % width;
 		uint32_t y = iuv[1] % height;
+	#if 0
 		return &texels[y * width + x];
+	#else
+		static const uint32_t B[] = {0x55555555, 0x33333333, 0x0F0F0F0F, 0x00FF00FF};
+		static const uint32_t S[] = {1, 2, 4, 8};
+
+		x = (x | (x << S[3])) & B[3];
+		x = (x | (x << S[2])) & B[2];
+		x = (x | (x << S[1])) & B[1];
+		x = (x | (x << S[0])) & B[0];
+
+		y = (y | (y << S[3])) & B[3];
+		y = (y | (y << S[2])) & B[2];
+		y = (y | (y << S[1])) & B[1];
+		y = (y | (y << S[0])) & B[0];
+
+		return &texels[x | (y << 1)];
+	#endif
 	}
 
 	static rtm::vec4 decode_texel(const Texel& texel)
