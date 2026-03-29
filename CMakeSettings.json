@@ -1,0 +1,48 @@
+﻿{
+  "configurations": [
+    {
+      "name": "Debug",
+      "generator": "Visual Studio 18 2026 Win64",
+      "configurationType": "Debug",
+      "inheritEnvironments": [ "msvc_x64_x64" ],
+      "buildRoot": "${projectDir}\\build\\",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeCommandArgs": "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
+      "buildCommandArgs": "",
+      "ctestCommandArgs": ""
+    },
+    {
+      "name": "Release",
+      "generator": "Visual Studio 18 2026 Win64",
+      "configurationType": "Release",
+      "buildRoot": "${projectDir}\\build",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeCommandArgs": "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
+      "buildCommandArgs": "",
+      "ctestCommandArgs": "",
+      "inheritEnvironments": [ "msvc_x64_x64" ]
+    },
+    {
+      "name": "MinSizeRel",
+      "generator": "Visual Studio 18 2026 Win64",
+      "configurationType": "MinSizeRel",
+      "buildRoot": "${projectDir}\\build\\",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeCommandArgs": "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
+      "buildCommandArgs": "",
+      "ctestCommandArgs": "",
+      "inheritEnvironments": [ "msvc_x64_x64" ]
+    },
+    {
+      "name": "RelWithDebInfo",
+      "generator": "Visual Studio 18 2026 Win64",
+      "configurationType": "RelWithDebInfo",
+      "buildRoot": "${projectDir}\\build\\",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeCommandArgs": "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
+      "buildCommandArgs": "",
+      "ctestCommandArgs": "",
+      "inheritEnvironments": [ "msvc_x64_x64" ]
+    }
+  ]
+}

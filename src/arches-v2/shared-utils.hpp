@@ -18,6 +18,7 @@
 #include "rtm/rtm.hpp"
 
 #if defined BUILD_PLATFORM_WINDOWS
+	#include <Windows.h>
 	#define MAX_FILENAME_LENGTH MAX_PATH
 #elif defined BUILD_PLATFORM_LINUX
 	#include <linux/limits.h>
