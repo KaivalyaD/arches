@@ -151,10 +151,10 @@ static TRaXKernelArgs initilize_buffers(Units::UnitMainMemoryBase** drams, const
 {
 	std::string scene_name = sim_config.get_string("scene-name");
 	std::string project_folder = get_project_folder_path();
-	std::string datasets_folder = project_folder + "datasets/";
-	std::string cache_folder = project_folder + "datasets/cache/";
+	std::string datasets_folder = sim_config.get_string("dataset-dir") + "/";
+	std::string cache_folder = sim_config.get_string("dataset-dir") + "/cache/";
 
-	TRaXKernelArgs args;
+	TRaXKernelArgs args{};
 	args.framebuffer_width = sim_config.get_int("framebuffer-width");
 	args.framebuffer_height = sim_config.get_int("framebuffer-height");
 	args.framebuffer_size = args.framebuffer_width * args.framebuffer_height;
@@ -666,6 +666,7 @@ static void run_sim_trax(SimulationConfig& sim_config)
 	Units::UnitTP::Log tp_log;
 
 	UnitRTCore::Log rtc_log;
+	Units::UnitTexture::Log tu_log;
 
 	uint delta = sim_config.get_int("logging-interval");
 	float delta_s = delta / core_clock;
@@ -685,6 +686,7 @@ static void run_sim_trax(SimulationConfig& sim_config)
 		UnitL2Cache::Log l2_delta_log = delta_log(l2_log, l2s);
 		UnitL1Cache::Log l1d_delta_log = delta_log(l1d_log, l1ds);
 		UnitRTCore::Log rtc_delta_log = delta_log(rtc_log, rtcs);
+		Units::UnitTexture::Log tu_delta_log = delta_log(tu_log, tus);
 
 		double simulation_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count() / 1000.0;
 
@@ -706,6 +708,9 @@ static void run_sim_trax(SimulationConfig& sim_config)
 		printf("L2$  Occ: %0.2f%%\n", 100.0 * l2_delta_log.get_total() / num_partitions / l2_config.num_slices / l2_config.num_banks / delta);
 		printf("L1d$ Occ: %0.2f%%\n", 100.0 * l1d_delta_log.get_total() / num_tms / l1d_config.num_banks / delta);
 		printf("                            \n");
+		
+		tu_delta_log.print(delta, tus.size());
+		
 		if(!rtcs.empty())
 		{
 			printf("MRays/s: %.0f\n\n", rtc_delta_log.rays / delta_ns * 1000.0);
@@ -751,6 +756,10 @@ static void run_sim_trax(SimulationConfig& sim_config)
 	printf("L1d$ Read: %.1f B/clk (%.2f%%)\n", (float)l1d_log.bytes_read / frame_cycles, 100.0 * l1d_log.bytes_read / frame_cycles / peak_l1d_bandwidth);
 	l1d_log.print(frame_cycles);
 	total_power += l1d_log.print_power(l1d_power_config, frame_time);
+
+	print_header("Texture Unit");
+	delta_log(tu_log, tus);
+	tu_log.print(frame_cycles, tus.size());
 
 	print_header("TP");
 	delta_log(tp_log, tps);

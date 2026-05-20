@@ -1,4 +1,3 @@
-
 #pragma once
 #include "stdafx.hpp"
 
@@ -219,6 +218,7 @@ public:
 		set_param("max-rays", 128);
 
 		//Workload
+		set_param("dataset-dir", "./datasets");
 		set_param("scene-name", "sponza");
 		set_param("framebuffer-width", 1024);
 		set_param("framebuffer-height", 1024);

@@ -26,10 +26,13 @@ private:
 	Cascade<MemoryRequest, RoundRobinArbiter<uint128_t>> _request_network;
 	ReturnCascade _return_network;
 
+	uint32_t filter_mode{1};
+
 	uint8_t* _cheat_mem;
 
 	struct Sample
 	{
+		rtm::vec2 fract_uv;
 		paddr_t texel_addrs[8];
 		Texture2D::Texel texels[8];
 		uint32_t pending_texels;
@@ -73,6 +76,44 @@ public:
 	{
 		return _return_network.read(port_index);
 	}
+
+	class Log
+	{
+		const static uint NUM_COUNTERS = 4;
+
+	public:
+		union
+		{
+			struct
+			{
+				uint64_t texels;
+				uint64_t loads;
+			};
+			uint64_t counters[NUM_COUNTERS];
+		};
+
+	public:
+		Log() { reset(); }
+
+		void reset()
+		{
+			for(uint i = 0; i < NUM_COUNTERS; ++i)
+				counters[i] = 0;
+		}
+
+		void accumulate(const Log& other)
+		{
+			for(uint i = 0; i < NUM_COUNTERS; ++i)
+				counters[i] += other.counters[i];
+		}
+
+		void print(cycles_t cycles, uint units = 1)
+		{
+			printf("Texels: %lld\n", texels / units);
+			printf("Loads: %lld\n", loads / units);
+		}
+	}
+	log;
 };
 
 }
