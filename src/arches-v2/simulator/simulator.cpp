@@ -35,11 +35,11 @@ void Simulator::new_unit_group()
 #define UNIT_LOOP_END }
 #endif
 
-void Simulator::execute(uint delta, std::function<void()> interval_logger)
+void Simulator::execute(uint delta, int concurrency, std::function<void()> interval_logger)
 {
 #ifdef USE_TBB
 	tbb::task_arena::constraints arena_constraints;
-	arena_constraints.set_max_concurrency(8);
+	arena_constraints.set_max_concurrency(concurrency);
 	//arena_constraints.set_max_threads_per_core(1);
 	//arena_constraints.set_core_type(tbb::info::core_types().back());
 

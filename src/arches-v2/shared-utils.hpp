@@ -212,6 +212,7 @@ public:
 	{
 		//Simulation
 		set_param("logging-interval", 10000);
+		set_param("concurrency", tbb::this_task_arena::max_concurrency());
 
 		//Arch
 		set_param("arch-name", "TRaX");

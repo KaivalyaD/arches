@@ -680,7 +680,7 @@ static void run_sim_trax(SimulationConfig& sim_config)
 	//peak_l2_bandwidth = 32 * num_tms / 2;
 
 	auto start = std::chrono::high_resolution_clock::now();
-	simulator.execute(delta, [&]() -> void
+	simulator.execute(delta, sim_config.get_int("concurrency"), [&]() -> void
 	{
 		UnitDRAM::Log dram_delta_log = delta_log(dram_log, drams);
 		UnitL2Cache::Log l2_delta_log = delta_log(l2_log, l2s);

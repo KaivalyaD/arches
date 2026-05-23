@@ -31,7 +31,7 @@ public:
 
 	void register_unit(Units::UnitBase* unit);
 	void new_unit_group();
-	void execute(uint epsilon = 0, std::function<void()> interval_logger = nullptr);
+	void execute(uint epsilon = 0, int concurrency = 8, std::function<void()> interval_logger = nullptr);
 };
 
 }
