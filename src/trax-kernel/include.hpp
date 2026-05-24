@@ -29,6 +29,7 @@ struct TRaXKernelArgs
 	rtm::Ray* rays;
 	rtm::CWBVH::Node* nodes;
 	rtm::FTB* ft_blocks;
+	rtm::SphereList sphere_list;
 
 	//mesh data
 	rtm::uvec3* vertex_indices;

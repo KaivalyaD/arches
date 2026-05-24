@@ -73,4 +73,24 @@ inline bool intersect(const rtm::Triangle& tri, const rtm::Ray& ray, rtm::Hit& h
 #endif
 }
 
+inline bool intersect(const rtm::Sphere& sphere, const rtm::Ray &ray, rtm::Hit& hit) {
+	float radius = sphere.radius;
+	rtm::vec3 center = sphere.center;
+
+	float a = dot(ray.d, ray.d);//6
+	float b = 2.0f * dot(ray.d, ray.o - center);//8
+	float c = dot(ray.o - center, ray.o - center) - (radius * radius);//10
+	float d = b*b - 4.0f*a*c;//14
+	if(d < 0)
+		return false;
+	
+	float t = (-b - sqrt(d)) / (2.0f * a);//26
+	float bias = 0.001f;
+	if(t < bias)
+		return false;
+	
+	hit.t = t;
+	return true;
+}
+
 }

@@ -63,3 +63,35 @@ rtm::vec4 inline sample2d(Texture2D* texture, rtm::vec2 uv)
 	return texture->sample(uv);
 #endif
 }
+
+inline bool sphisect(const rtm::Sphere& sphere, const rtm::Ray &ray, rtm::Hit &hit)
+{
+#ifdef __riscv
+	register float f0  asm("f0")  = ray.o.x;
+	register float f1  asm("f1")  = ray.o.y;
+	register float f2  asm("f2")  = ray.o.z;
+	register float f3  asm("f3")  = ray.t_min;
+	register float f4  asm("f4")  = ray.d.x;
+	register float f5  asm("f5")  = ray.d.y;
+	register float f6  asm("f6")  = ray.d.z;
+	register float f7  asm("f7")  = ray.t_max;
+	register float f8  asm("f8")  = sphere.center.x;
+	register float f9  asm("f9")  = sphere.center.y;
+	register float f10 asm("f10") = sphere.center.z;
+	register float f11 asm("f11") = sphere.radius;
+	register float t   asm("f28");
+
+	asm volatile(
+		".insn u 0xb, %0, 0x18\n\t"
+		: "=f"(t)
+		: "f"(f0), "f"(f1), "f"(f2), "f"(f3), "f"(f4), "f"(f5), "f"(f6), "f"(f7),
+		  "f"(f8), "f"(f9), "f"(f10), "f"(f11)
+		// : "memory"
+	);
+	
+	hit.t = t;
+	return hit.t < ray.t_max;
+#else
+	return rtm::intersect(sphere, ray, hit);
+#endif
+}

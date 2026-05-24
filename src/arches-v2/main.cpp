@@ -88,6 +88,36 @@ const static InstructionInfo isa_custom0_000_imm[8] =
 		fr[19].f32 = hit.bc[1];
 		fr[20].u32 = hit.id;
 	}),
+	InstructionInfo(0x3, "sphisect", InstrType::CUSTOM4, Encoding::U, RegFile::FLOAT, EXEC_DECL
+	{
+		Register32 *fr = unit->float_regs->registers;
+
+		rtm::Ray ray;
+		ray.o.x   = fr[0].f32;
+		ray.o.y   = fr[1].f32;
+		ray.o.z   = fr[2].f32;
+		ray.t_min = fr[3].f32;
+		ray.d.x   = fr[4].f32;
+		ray.d.y   = fr[5].f32;
+		ray.d.z   = fr[6].f32;
+		ray.t_max = fr[7].f32;
+
+		rtm::Sphere sphere;
+		sphere.center.x = fr[8].f32;
+		sphere.center.y = fr[9].f32;
+		sphere.center.z = fr[10].f32;
+		sphere.radius   = fr[11].f32;
+
+		rtm::Hit hit;
+		if(rtm::intersect(sphere, ray, hit))
+		{
+			unit->float_regs->registers[instr.rd].f32 = hit.t;
+		}
+		else
+		{
+			unit->float_regs->registers[instr.rd].f32 = ray.t_max;
+		}
+	}),
 };
 
 const static InstructionInfo isa_custom0_funct3[8] =
@@ -117,7 +147,7 @@ const static InstructionInfo isa_custom0_funct3[8] =
 
 		MemoryRequest mem_req;
 		mem_req.type = MemoryRequest::Type::STORE;
-		mem_req.size = 8;
+		mem_req.size = 8; // excluding size of vaddr/paddr
 		mem_req.dst.push(DstReg(instr.rd, RegType::FLOAT32).u9, 9);
 		mem_req.vaddr = fr[instr.i.rs1].u32;
 
@@ -168,56 +198,66 @@ static TRaXKernelArgs initilize_buffers(Units::UnitMainMemoryBase** drams, const
 	args.light_dir = rtm::normalize(rtm::vec3(4.5f, 42.5f, 5.0f));
 	args.camera = sim_config.camera;
 
-	rtm::Mesh mesh(datasets_folder + scene_name + ".obj");
-	rtm::CWBVH bvh(mesh, (cache_folder + scene_name + ".bvh").c_str(), sim_config.get_int("bvh-preset"), sim_config.get_int("bvh-merging"));
+	rtm::Sphere spheres[3];
+	spheres[0].center = rtm::vec3(-1.5f, -1.0f, 0.0f);
+	spheres[0].radius = 2.0f;
+	spheres[1].center = rtm::vec3(0.0f, 1.0f, 0.0f);
+	spheres[1].radius = 1.0f;
+	spheres[2].center = rtm::vec3(1.5f, -1.0f, 0.0f);
+	spheres[2].radius = 1.0f;
+	args.sphere_list.spheres = write_array(drams, xbar, 256, spheres, sizeof(spheres), heap_address);
+	args.sphere_list.sphere_count = sizeof(spheres) / sizeof(rtm::Sphere);
 
-	std::vector<rtm::Ray> rays(args.framebuffer_size);
+	// rtm::Mesh mesh(datasets_folder + scene_name + ".obj");
+	// rtm::CWBVH bvh(mesh, (cache_folder + scene_name + ".bvh").c_str(), sim_config.get_int("bvh-preset"), sim_config.get_int("bvh-merging"));
+
+	// std::vector<rtm::Ray> rays(args.framebuffer_size);
 	if(args.pregen_rays)
 	{
-		std::string ray_file = scene_name + "-" + std::to_string(args.framebuffer_width) + "-" + std::to_string(pregen_bounce) + ".rays";
+		// std::string ray_file = scene_name + "-" + std::to_string(args.framebuffer_width) + "-" + std::to_string(pregen_bounce) + ".rays";
 	#if USE_HECWBVH_V1
-		pregen_rays(&bvh.nodes[0], &bvh.nodes[0].ftb, mesh, args.framebuffer_width, args.framebuffer_height, args.camera, pregen_bounce, rays);
+		// pregen_rays(&bvh.nodes[0], &bvh.nodes[0].ftb, mesh, args.framebuffer_width, args.framebuffer_height, args.camera, pregen_bounce, rays);
 	#else
-		pregen_rays(&bvh.nodes[0], &bvh.ftbs[0], mesh, args.framebuffer_width, args.framebuffer_height, args.camera, pregen_bounce, rays);
+		// pregen_rays(&bvh.nodes[0], &bvh.ftbs[0], mesh, args.framebuffer_width, args.framebuffer_height, args.camera, pregen_bounce, rays);
 	#endif
-		args.rays = write_vector(drams, xbar, 256, rays, heap_address);
+		// args.rays = write_vector(drams, xbar, 256, rays, heap_address);
 	}
 
-	args.materials = write_vector(drams, xbar, 256, mesh.materials, heap_address);
+	// args.materials = write_vector(drams, xbar, 256, mesh.materials, heap_address);
 
-	args.nodes = write_vector(drams, xbar, 256, bvh.nodes, heap_address);
+	// args.nodes = write_vector(drams, xbar, 256, bvh.nodes, heap_address);
 
 #if USE_HECWBVH_V1
-	args.ftbs = (rtm::FTB*)args.nodes;
+	// args.ftbs = (rtm::FTB*)args.nodes;
 #else 
-	args.ft_blocks = write_vector(drams, xbar, 256, bvh.ftbs, heap_address);
+	// args.ft_blocks = write_vector(drams, xbar, 256, bvh.ftbs, heap_address);
 #endif
 
-	args.vertex_indices = write_vector(drams, xbar, 256, mesh.vertex_indices, heap_address);
-	args.normal_indices = write_vector(drams, xbar, 256, mesh.normal_indices, heap_address);
-	args.tex_coord_indices = write_vector(drams, xbar, 256, mesh.tex_coord_indices, heap_address);
+	// args.vertex_indices = write_vector(drams, xbar, 256, mesh.vertex_indices, heap_address);
+	// args.normal_indices = write_vector(drams, xbar, 256, mesh.normal_indices, heap_address);
+	// args.tex_coord_indices = write_vector(drams, xbar, 256, mesh.tex_coord_indices, heap_address);
 
-	args.vertices = write_vector(drams, xbar, 256, mesh.vertices, heap_address);
-	args.normals = write_vector(drams, xbar, 256, mesh.normals, heap_address);
-	args.tex_coords = write_vector(drams, xbar, 256, mesh.tex_coords, heap_address);
+	// args.vertices = write_vector(drams, xbar, 256, mesh.vertices, heap_address);
+	// args.normals = write_vector(drams, xbar, 256, mesh.normals, heap_address);
+	// args.tex_coords = write_vector(drams, xbar, 256, mesh.tex_coords, heap_address);
 
-	args.material_indices = write_vector(drams, xbar, 256, mesh.material_indices, heap_address);
+	// args.material_indices = write_vector(drams, xbar, 256, mesh.material_indices, heap_address);
 
-	for(uint32_t i = 0; i < mesh.materials.size(); ++i)
-	{
-		if(!mesh.materials[i].use_am)
-			continue;
-		Texture2D& tex = mesh.materials[i].albedo_texture;
-		Texture2D::Texel* dev_tex = write_array(drams, xbar, 256, tex.texels, tex.width * tex.height, heap_address);
-		free(tex.texels);
-		tex.texels = dev_tex;
-	}
+	// for(uint32_t i = 0; i < mesh.materials.size(); ++i)
+	// {
+	// 	if(!mesh.materials[i].use_am)
+	// 		continue;
+	// 	Texture2D& tex = mesh.materials[i].albedo_texture;
+	// 	Texture2D::Texel* dev_tex = write_array(drams, xbar, 256, tex.texels, tex.width * tex.height, heap_address);
+	// 	free(tex.texels);
+	// 	tex.texels = dev_tex;
+	// }
 
-	paddr_t mat_addr = (paddr_t)args.materials;
-	args.materials = write_vector(drams, xbar, 256, mesh.materials, mat_addr);
+	// paddr_t mat_addr = (paddr_t)args.materials;
+	// args.materials = write_vector(drams, xbar, 256, mesh.materials, mat_addr);
 
-	for(uint32_t i = 0; i < mesh.materials.size(); ++i)
-		mesh.materials[i].albedo_texture.texels = nullptr;  // to not free device memory textures
+	// for(uint32_t i = 0; i < mesh.materials.size(); ++i)
+	// 	mesh.materials[i].albedo_texture.texels = nullptr;  // to not free device memory textures
 
 	size_t temp = TRAX_KERNEL_ARGS_ADDRESS;
 	write_array(drams, xbar, 256, (uint8_t*)&args, sizeof(TRaXKernelArgs), temp);
@@ -480,6 +520,7 @@ static void run_sim_trax(SimulationConfig& sim_config)
 	ISA::RISCV::InstructionTypeNameDatabase::get_instance()[ISA::RISCV::InstrType::CUSTOM1] = "BOXISECT";
 	ISA::RISCV::InstructionTypeNameDatabase::get_instance()[ISA::RISCV::InstrType::CUSTOM2] = "TRIISECT";
 	ISA::RISCV::InstructionTypeNameDatabase::get_instance()[ISA::RISCV::InstrType::CUSTOM3] = "SAMPLE2D";
+	ISA::RISCV::InstructionTypeNameDatabase::get_instance()[ISA::RISCV::InstrType::CUSTOM4] = "SPHISECT";
 	ISA::RISCV::InstructionTypeNameDatabase::get_instance()[ISA::RISCV::InstrType::CUSTOM7] = "TRACERAY";
 	ISA::RISCV::isa[ISA::RISCV::CUSTOM_OPCODE0] = ISA::RISCV::TRaX::custom0;
 
@@ -591,6 +632,11 @@ static void run_sim_trax(SimulationConfig& sim_config)
 		simulator.register_unit(sfu_list.back());
 		unit_table[(uint)ISA::RISCV::InstrType::FDIV] = sfu_list.back();
 		unit_table[(uint)ISA::RISCV::InstrType::FSQRT] = sfu_list.back();
+
+		// sphere intersection SFU
+		sfu_list.push_back(_new Units::UnitSFU(num_tps / 32, 26, 1, num_tps));
+		simulator.register_unit(sfu_list.back());
+		unit_table[(uint)ISA::RISCV::InstrType::CUSTOM4] = sfu_list.back();
 
 	#if TRAX_USE_HARDWARE_INTERSECTORS
 		sfu_list.push_back(_new Units::UnitSFU(2, 3, 1, num_tps_per_tm));
