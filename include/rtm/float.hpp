@@ -5,8 +5,18 @@
 
 #ifndef __riscv
 #include <cmath>
-#include <intrin.h>
+	#if defined BUILD_PLATFORM_WINDOWS
+		#include <intrin.h>
+	#elif defined BUILD_PLATFORM_LINUX
+		#include <immintrin.h>
+	#endif
 #include <cfenv>
+#endif
+
+#ifdef BUILD_PLATFORM_LINUX
+	// Declarations of intrinsics used that are defined but not declared in immintrin
+	extern __m128 _mm_cos_ps(__m128 __A);
+	extern __m128 _mm_sin_ps(__m128 __A);
 #endif
 
 namespace rtm
@@ -157,7 +167,7 @@ inline int32_t f32_to_i24(float f32, uint8_t max_exp = 127, int rounding = 0)
 	else if(rounding == 1)
 		norm = std::ceil(norm);
 	
-	if(norm > ((1 << 23) - 1) || norm < -(1 << 23)) __debugbreak();
+	if(norm > ((1 << 23) - 1) || norm < -(1 << 23)) add_breakpoint();
 
 	return (int32_t)norm;
 }
@@ -185,7 +195,7 @@ inline uint16_t f32_to_i16(float f32, uint8_t max_exp = 127, int rounding = 0)
 	else if(rounding == 1)
 		norm = std::ceil(norm);
 
-	if(norm > ((1 << 15) - 1) || norm < -(1 << 15)) __debugbreak();
+	if(norm > ((1 << 15) - 1) || norm < -(1 << 15)) add_breakpoint();
 	return (int16_t)norm;
 }
 #endif

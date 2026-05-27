@@ -7,8 +7,9 @@
 # objs
 datasets
 
-# build
-build
+# directories
+[Bb]uild*
+venv
 
 ## log info
 *_log.txt

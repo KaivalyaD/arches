@@ -5,6 +5,7 @@
 #include "units/trax/unit-rt-core.hpp"
 #include "trax-kernel/include.hpp"
 #include "trax-kernel/intersect.hpp"
+#include "units/unit-texture.hpp"
 
 namespace Arches {
 
@@ -110,6 +111,26 @@ const static InstructionInfo isa_custom0_funct3[8] =
 
 		return mem_req;
 	}),
+	InstructionInfo(0x6, "sample2d", InstrType::CUSTOM3, Encoding::I, RegFile::FLOAT, MEM_REQ_DECL
+	{
+		Register32* fr = unit->float_regs->registers;
+
+		MemoryRequest mem_req;
+		mem_req.type = MemoryRequest::Type::STORE;
+		mem_req.size = 8;
+		mem_req.dst.push(DstReg(instr.rd, RegType::FLOAT32).u9, 9);
+		mem_req.vaddr = fr[instr.i.rs1].u32;
+
+		((float*)mem_req.data)[0] = fr[instr.i.rs1 + 1].f32;
+		((float*)mem_req.data)[1] = fr[instr.i.rs1 + 2].f32;
+
+		//fr[instr.i.rd + 0].f32 = fr[instr.i.rs1 + 1].f32;
+		//fr[instr.i.rd + 1].f32 = fr[instr.i.rs1 + 2].f32;
+		//fr[instr.i.rd + 2].f32 = 0.5f;
+		//fr[instr.i.rd + 3].f32 = 1.0f;
+
+		return mem_req;
+	}),
 };
 
 const static InstructionInfo custom0(CUSTOM_OPCODE0, META_DECL{return isa_custom0_funct3[instr.i.funct3]; });
@@ -130,10 +151,10 @@ static TRaXKernelArgs initilize_buffers(Units::UnitMainMemoryBase** drams, const
 {
 	std::string scene_name = sim_config.get_string("scene-name");
 	std::string project_folder = get_project_folder_path();
-	std::string datasets_folder = project_folder + "datasets\\";
-	std::string cache_folder = project_folder + "datasets\\cache\\";
+	std::string datasets_folder = sim_config.get_string("dataset-dir") + "/";
+	std::string cache_folder = sim_config.get_string("dataset-dir") + "/cache/";
 
-	TRaXKernelArgs args;
+	TRaXKernelArgs args{};
 	args.framebuffer_width = sim_config.get_int("framebuffer-width");
 	args.framebuffer_height = sim_config.get_int("framebuffer-height");
 	args.framebuffer_size = args.framebuffer_width * args.framebuffer_height;
@@ -162,6 +183,8 @@ static TRaXKernelArgs initilize_buffers(Units::UnitMainMemoryBase** drams, const
 		args.rays = write_vector(drams, xbar, 256, rays, heap_address);
 	}
 
+	args.materials = write_vector(drams, xbar, 256, mesh.materials, heap_address);
+
 	args.nodes = write_vector(drams, xbar, 256, bvh.nodes, heap_address);
 
 #if USE_HECWBVH_V1
@@ -182,16 +205,19 @@ static TRaXKernelArgs initilize_buffers(Units::UnitMainMemoryBase** drams, const
 
 	for(uint32_t i = 0; i < mesh.materials.size(); ++i)
 	{
+		if(!mesh.materials[i].use_am)
+			continue;
 		Texture2D& tex = mesh.materials[i].albedo_texture;
 		Texture2D::Texel* dev_tex = write_array(drams, xbar, 256, tex.texels, tex.width * tex.height, heap_address);
 		free(tex.texels);
 		tex.texels = dev_tex;
 	}
 
-	args.materials = write_vector(drams, xbar, 256, mesh.materials, heap_address);
+	paddr_t mat_addr = (paddr_t)args.materials;
+	args.materials = write_vector(drams, xbar, 256, mesh.materials, mat_addr);
 
 	for(uint32_t i = 0; i < mesh.materials.size(); ++i)
-		mesh.materials[i].albedo_texture.texels = nullptr;
+		mesh.materials[i].albedo_texture.texels = nullptr;  // to not free device memory textures
 
 	size_t temp = TRAX_KERNEL_ARGS_ADDRESS;
 	write_array(drams, xbar, 256, (uint8_t*)&args, sizeof(TRaXKernelArgs), temp);
@@ -349,7 +375,7 @@ static void run_sim_trax(SimulationConfig& sim_config)
 
 	//DRAM
 	UnitDRAM::Configuration dram_config;
-	dram_config.config_path = project_folder_path + "build\\src\\arches-v2\\config-files\\gddr6_14000_config.yaml";
+	dram_config.config_path = project_folder_path + "build/src/arches-v2/config-files/gddr6_14000_config.yaml";
 	dram_config.size = 1ull << 30; //1GB
 	dram_config.clock_ratio = dram_clock / core_clock;
 	dram_config.latency = 92;
@@ -387,6 +413,8 @@ static void run_sim_trax(SimulationConfig& sim_config)
 	l1d_config.latency = 20;
 
 	UnitL1Cache::PowerConfig l1d_power_config;
+
+	Units::UnitTexture::Configuration tu_config;
 
 	UnitRTCore::Configuration rtc_config;
 	rtc_config.max_rays = 64;
@@ -446,11 +474,12 @@ static void run_sim_trax(SimulationConfig& sim_config)
 	UnitL1Cache::PowerConfig l1d_power_config;
 #endif
 
-	ELF elf(project_folder_path + "src\\trax-kernel\\riscv\\kernel");
+	ELF elf(project_folder_path + "src/trax-kernel/riscv/kernel");
 
 	ISA::RISCV::InstructionTypeNameDatabase::get_instance()[ISA::RISCV::InstrType::CUSTOM0] = "FCHTHRD";
 	ISA::RISCV::InstructionTypeNameDatabase::get_instance()[ISA::RISCV::InstrType::CUSTOM1] = "BOXISECT";
 	ISA::RISCV::InstructionTypeNameDatabase::get_instance()[ISA::RISCV::InstrType::CUSTOM2] = "TRIISECT";
+	ISA::RISCV::InstructionTypeNameDatabase::get_instance()[ISA::RISCV::InstrType::CUSTOM3] = "SAMPLE2D";
 	ISA::RISCV::InstructionTypeNameDatabase::get_instance()[ISA::RISCV::InstrType::CUSTOM7] = "TRACERAY";
 	ISA::RISCV::isa[ISA::RISCV::CUSTOM_OPCODE0] = ISA::RISCV::TRaX::custom0;
 
@@ -461,6 +490,7 @@ static void run_sim_trax(SimulationConfig& sim_config)
 	std::vector<Units::UnitSFU*> sfus;
 	std::vector<Units::UnitThreadScheduler*> thread_schedulers;
 	std::vector<UnitRTCore*> rtcs;
+	std::vector<Units::UnitTexture*> tus;
 	std::vector<UnitL1Cache*> l1ds;
 	std::vector<std::vector<Units::UnitBase*>> unit_tables; unit_tables.reserve(num_tms);
 	std::vector<std::vector<Units::UnitSFU*>> sfu_lists; sfu_lists.reserve(num_tms);
@@ -499,6 +529,9 @@ static void run_sim_trax(SimulationConfig& sim_config)
 
 	TRaXKernelArgs kernel_args = initilize_buffers((Units::UnitMainMemoryBase**)drams.data(), xbar, heap_address, sim_config, partition_stride);
 	heap_address = align_to(partition_stride, heap_address);
+
+	for(uint addr = 0; addr < (256 << 20); addr += partition_stride)
+		drams[xbar.get_partition(addr)]->direct_read(vec_mem.data() + addr, partition_stride, xbar.strip_partition_bits(addr));
 
 	//bool warm_l2 = false;
 	//if(warm_l2)
@@ -576,6 +609,16 @@ static void run_sim_trax(SimulationConfig& sim_config)
 		//l1ss.push_back(new Units::UnitStreamCache(l1s_config));
 		//simulator.register_unit(l1ss.back());
 
+		tu_config.num_clients = num_tps;
+		tu_config.cache = l1ds.back();
+		tu_config.cache_port = num_tps + 1;
+		tu_config.cheat_mem = vec_mem.data();
+
+		tus.push_back(_new  Units::UnitTexture(tu_config));
+		simulator.register_unit(tus.back());
+		mem_list.push_back(tus.back());
+		unit_table[(uint)ISA::RISCV::InstrType::CUSTOM3] = tus.back();
+
 	#if TRAX_USE_RT_CORE
 		rtc_config.num_clients = num_tps;
 		rtc_config.node_base_addr = (paddr_t)kernel_args.nodes;
@@ -623,6 +666,7 @@ static void run_sim_trax(SimulationConfig& sim_config)
 	Units::UnitTP::Log tp_log;
 
 	UnitRTCore::Log rtc_log;
+	Units::UnitTexture::Log tu_log;
 
 	uint delta = sim_config.get_int("logging-interval");
 	float delta_s = delta / core_clock;
@@ -642,6 +686,7 @@ static void run_sim_trax(SimulationConfig& sim_config)
 		UnitL2Cache::Log l2_delta_log = delta_log(l2_log, l2s);
 		UnitL1Cache::Log l1d_delta_log = delta_log(l1d_log, l1ds);
 		UnitRTCore::Log rtc_delta_log = delta_log(rtc_log, rtcs);
+		Units::UnitTexture::Log tu_delta_log = delta_log(tu_log, tus);
 
 		double simulation_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start).count() / 1000.0;
 
@@ -663,6 +708,9 @@ static void run_sim_trax(SimulationConfig& sim_config)
 		printf("L2$  Occ: %0.2f%%\n", 100.0 * l2_delta_log.get_total() / num_partitions / l2_config.num_slices / l2_config.num_banks / delta);
 		printf("L1d$ Occ: %0.2f%%\n", 100.0 * l1d_delta_log.get_total() / num_tms / l1d_config.num_banks / delta);
 		printf("                            \n");
+		
+		tu_delta_log.print(delta, tus.size());
+		
 		if(!rtcs.empty())
 		{
 			printf("MRays/s: %.0f\n\n", rtc_delta_log.rays / delta_ns * 1000.0);
@@ -709,6 +757,10 @@ static void run_sim_trax(SimulationConfig& sim_config)
 	l1d_log.print(frame_cycles);
 	total_power += l1d_log.print_power(l1d_power_config, frame_time);
 
+	print_header("Texture Unit");
+	delta_log(tu_log, tus);
+	tu_log.print(frame_cycles, tus.size());
+
 	print_header("TP");
 	delta_log(tp_log, tps);
 	tp_log.print(tps.size());
@@ -754,6 +806,7 @@ static void run_sim_trax(SimulationConfig& sim_config)
 
 int main(int argc, char* argv[])
 {
+	Arches::set_full_exe_name(argv[0]);
 	Arches::SimulationConfig sim_config(argc, argv);
 	Arches::TRaX::run_sim_trax(sim_config);
 	return 0;

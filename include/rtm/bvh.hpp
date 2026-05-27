@@ -1,5 +1,6 @@
 #pragma once
 
+#include "macros.hpp"
 #include "int.hpp"
 #include "aabb.hpp"
 #include "mesh.hpp"
@@ -718,7 +719,7 @@ private:
 					cache.decisions[j] = cache.decisions[j - 1];
 			}
 
-			if(cache.decisions[1].cost == INFINITY) __debugbreak();
+			if(cache.decisions[1].cost == INFINITY) add_breakpoint();
 		}
 
 		struct CostItem

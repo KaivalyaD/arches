@@ -67,8 +67,20 @@ public:
 public:
 	Mesh(std::string file_path) : mtl_lib("")
 	{
- 		load_obj(file_path.c_str());
-		load_mtl(swap_path(mtl_lib, "../../../datasets/"), "../../../datasets/textures/");
+ 		if(!load_obj(file_path.c_str()))
+		{
+			printf("Mesh: failed to load mesh OBJ file %s\n", file_path.c_str());
+			return;
+		}
+		if(mtl_lib.length() > 0)
+		{
+			std::string parent_folder = parent_path(file_path);
+			if (!load_mtl(swap_path(mtl_lib, parent_folder), parent_folder + "textures/"))
+			{
+				printf("Mesh: failed to load mesh textures or MTL file %s\n", mtl_lib.c_str());
+				return;
+			}
+		}
 	}
 
 	static inline rtm::vec2 read_vec2(char* line)
@@ -344,6 +356,14 @@ public:
 		return true;
 	}
 
+	static inline std::string parent_path(std::string path)
+	{
+		int i = 0;
+		for (i = path.size() - 2; i >= 0; --i)
+			if (path.at(i) == '/')
+				break;
+		return path.substr(0, i + 1);
+	}
 
 	static inline std::string swap_path(std::string current_path, std::string new_path)
 	{
@@ -351,8 +371,7 @@ public:
 		for(i = current_path.size() - 2; i >= 0; --i)
 			if(current_path.at(i) == '/')
 				break;
-
-		return new_path + current_path.substr(i + 1);;
+		return new_path + current_path.substr(i + 1);
 	}
 
 	static inline std::string to_string(rtm::vec3 v)

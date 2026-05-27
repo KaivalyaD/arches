@@ -35,10 +35,13 @@ public:
 	struct PowerConfig
 	{
 		//Energy is joules, power in watts
-		float tag_energy{0.0f};
-		float read_energy{0.0f};
-		float write_energy{0.0f};
-		float leakage_power{0.0f};
+		float tag_energy;
+		float read_energy;
+		float write_energy;
+		float leakage_power;
+
+		PowerConfig() :
+			tag_energy(0.0f), read_energy(0.0f), write_energy(0.0f), leakage_power(0.0f) {}
 	};
 
 	UnitStreamCache(Configuration config);

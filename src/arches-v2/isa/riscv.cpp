@@ -1,6 +1,10 @@
 #include "riscv.hpp"
 
-#include <intrin.h>
+#if defined BUILD_PLATFORM_WINDOWS
+	#include <intrin.h>
+#elif defined BUILD_PLATFORM_LINUX
+	#include <immintrin.h>
+#endif
 
 #include "errors.hpp"
 #include "util/bit-manipulation.hpp"
@@ -203,7 +207,7 @@ InstructionInfo const isa_SYSTEM[2] =
 	InstructionInfo(0b000000000001, "ebreak", InstrType::SYS, Encoding::I, RegFile::INT, EXEC_DECL
 	{
 		//break point
-		__debugbreak();
+		add_breakpoint();
 	}),
 };
 
@@ -745,7 +749,7 @@ InstructionInfo const isa_OP_FSGNJ_FP[3] = //r.funct3
 	{
 		float rs1 = unit->float_regs->registers[instr.r.rs1].f32; 
 		float rs2 = unit->float_regs->registers[instr.r.rs2].f32;
-		unit->float_regs->registers[instr.r.rd].f32 = copysignf(rs1, (signbit(rs1) != signbit(rs2)) ? -1.0f : 1.0f);
+		unit->float_regs->registers[instr.r.rd].f32 = copysignf(rs1, (std::signbit(rs1) != std::signbit(rs2)) ? -1.0f : 1.0f);
 	}),
 };
 

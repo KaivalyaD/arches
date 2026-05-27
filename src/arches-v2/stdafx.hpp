@@ -1,8 +1,14 @@
 #pragma once
 
-//Determine debug/release
+//Determine platform
 #if defined _WIN16 || defined WIN32 || defined _WIN32 || defined WIN64 || defined _WIN64 || defined __WIN32__ || defined __TOS_WIN__ || defined __WINDOWS__
 	#define BUILD_PLATFORM_WINDOWS
+#elif defined __linux__
+	#define BUILD_PLATFORM_LINUX
+#endif
+
+//Determine debug/release
+#ifdef BUILD_PLATFORM_WINDOWS
 
 	#if defined _DEBUG || defined DEBUG
 		#define BUILD_DEBUG
@@ -108,6 +114,14 @@
 #endif
 #define notimpl implerr
 
+//To add breakpoints for debugging at runtime
+#if defined BUILD_PLATFORM_WINDOWS
+	#define add_breakpoint() __debugbreak()
+#elif defined BUILD_PLATFORM_LINUX
+	#include <signal.h>
+	#define add_breakpoint() raise(SIGINT)
+#endif
+
 //Language facts
 #if -2>>1 == -1
 	#define SHIFTRIGHT_ARITHMETIC //Pads with sign bit
@@ -142,16 +156,17 @@
 #include <functional>
 #include <bitset>
 
-#include <intrin.h>
-#include <xmmintrin.h>
-
-
-
+//Include platform intrinsics header
+#if defined BUILD_PLATFORM_WINDOWS
+	#include <intrin.h>
+#elif defined BUILD_PLATFORM_LINUX
+	#include <immintrin.h>
+#endif
 
 #ifndef _DEBUG
 inline void _assert(bool x)
 {
-	if(!x) __debugbreak();
+	if(!x) add_breakpoint();
 }
 #else
 inline void _assert(bool x)

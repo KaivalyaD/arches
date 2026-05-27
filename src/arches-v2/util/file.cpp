@@ -5,6 +5,7 @@
 	#include <Windows.h>
 	#include <io.h>
 #else
+	#include <stdarg.h>
 	#include <cerrno>
 	#include <fcntl.h>
 #endif

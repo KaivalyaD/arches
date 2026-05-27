@@ -22,7 +22,9 @@ inline void _traceray(uint id, const rtm::Ray& ray, rtm::Hit& hit)
 
 	asm volatile
 	(
-		"traceray %0, %4, %12\t\n"
+		// "traceray %0, %4, %12\t\n"
+		// ".insn i 0x0b, 0, %0, %4, %12\t\n"
+		".insn i 0x0b, 5, %0, %4, %12\t\n"
 		: "=f" (dst0), "=f" (dst1), "=f" (dst2), "=f" (dst3)
 		: "f" (src0), "f" (src1), "f" (src2), "f" (src3), "f" (src4), "f" (src5), "f" (src6), "f" (src7), "I" (FLAGS) 
 	);
@@ -58,7 +60,13 @@ inline float _intersect(const rtm::AABB& aabb, const rtm::Ray& ray, const rtm::v
 	register float src13 asm("f13") = aabb.max.z;
 
 	float t;
-	asm volatile ("boxisect %0" : "=f" (t) : "f" (src0), "f" (src1), "f" (src2), "f" (src3), "f" (src4), "f" (src5), "f" (src6), "f" (src7), "f" (src8), "f" (src9), "f" (src10), "f" (src11), "f" (src12), "f" (src13));
+	asm volatile (
+		/*"boxisect %0"*/
+		// ".insn r 0x0b %0"
+		".insn r 0x0b, 0, 0x04, %0, x0, x0"
+		: "=f" (t)
+		: "f" (src0), "f" (src1), "f" (src2), "f" (src3), "f" (src4), "f" (src5), "f" (src6), "f" (src7), "f" (src8), "f" (src9), "f" (src10), "f" (src11), "f" (src12), "f" (src13)
+	);
 
 	return t;
 #else
@@ -93,7 +101,12 @@ inline bool _intersect(const rtm::Triangle& tri, const rtm::Ray& ray, rtm::Hit& 
 	register float dst2 asm("f19") = hit.bc.y;
 	register float dst3 asm("f20") = *(float*)&hit.id;
 
-	asm volatile("triisect %0\n\t" : "+f" (dst0), "+f" (dst1), "+f" (dst2), "+f" (dst3) : "f" (src0), "f" (src1), "f" (src2), "f" (src3), "f" (src4), "f" (src5), "f" (src6), "f" (src7), "f" (src8), "f" (src9), "f" (src10), "f" (src11), "f" (src12), "f" (src13), "f" (src14), "f" (src15), "f" (src16));
+	asm volatile(
+		/*"triisect %0\n\t"*/
+		// ".insn r 0x0b %0\n\t"
+		".insn r 0x0b, 0, 0x08, %0, x0, x0"
+		: "+f" (dst0), "+f" (dst1), "+f" (dst2), "+f" (dst3) : "f" (src0), "f" (src1), "f" (src2), "f" (src3), "f" (src4), "f" (src5), "f" (src6), "f" (src7), "f" (src8), "f" (src9), "f" (src10), "f" (src11), "f" (src12), "f" (src13), "f" (src14), "f" (src15), "f" (src16)
+	);
 
 	bool is_hit = dst0 < hit.t;
 	float _dst3 = dst3;
