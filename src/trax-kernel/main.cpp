@@ -1,5 +1,6 @@
 #include "stdafx.hpp"
 #include "include.hpp"
+#include "intersect.hpp"
 #include "custom-instr.hpp"
 
 inline static uint32_t encode_pixel(rtm::vec3 in)
@@ -29,44 +30,43 @@ inline static void kernel(const TRaXKernelArgs& args)
 		uint32_t x = tile_x * TILE_X + thread_id % TILE_X;
 		uint32_t y = tile_y * TILE_Y + thread_id / TILE_X;
 		uint fb_index = y * args.framebuffer_width + x;
-		
+
 		rtm::RNG rng(fb_index);
+		IntersectStats stats;
 
-		rtm::Ray ray = args.pregen_rays ? args.rays[fb_index] : args.camera.generate_ray_through_pixel(x, y);
-		rtm::Hit hit(ray.t_max, rtm::vec2(0.0f), ~0u);
-
-		rtm::Hit closest;
-		closest.t = T_MAX;
-		int32_t id = -1;
-		bool is_hit = false;
-		for(int i = 0; i < args.sphere_list.sphere_count; ++i)
+		// path tracing
+		float radiance = 0.0f;
+		for(uint32_t i = 0; i < SPP; ++i)
 		{
-			rtm::Hit h;
-			if(sphisect(args.sphere_list.spheres[i], ray, h))
+			float throughput = 1.0f;
+			rtm::Ray ray = args.pregen_rays ? args.rays[fb_index] : args.camera.generate_ray_through_pixel(x, y);
+			
+			for(uint32_t j = 0; j < 3; ++j)
 			{
-				if(h.t < closest.t)
+				rtm::Hit hit(ray.t_max, rtm::vec2(0.0f), ~0u);
+
+				_traceray<0x0u>(index, ray, hit);
+				if(hit.t >= ray.t_max)
 				{
-					closest.t = h.t;
-					id = i;
+					radiance += throughput * 2.0f;
+					break;
 				}
+				
+				rtm::uvec3 &ni = args.normal_indices[hit.id];
+				rtm::vec3 &n1 = args.normals[ni.x];
+				rtm::vec3 &n2 = args.normals[ni.y];
+				rtm::vec3 &n3 = args.normals[ni.z];
+				rtm::vec3 n = hit.bc.x * n1 + hit.bc.y * n2 + (1.0f - hit.bc.x - hit.bc.y) * n3;
+
+				// absorb energy due to bounce
+				throughput *= 0.8f;
+
+				// generate secondray rays
+				ray.o += ray.d * hit.t;
+				ray.d = cosine_sample_hemisphere(n, rng);
 			}
 		}
-		
-		if(id >= 0)
-		{
-			hit.t = closest.t;
-			hit.id = id;
-			is_hit = true;
-		}
-
-		if(is_hit)
-		{
-			args.framebuffer[fb_index] = rtm::RNG::hash(hit.id + 1) | 0xff000000;
-		}
-		else
-		{
-			args.framebuffer[fb_index] = 0xff000000;
-		}
+		args.framebuffer[fb_index] = encode_pixel(radiance / SPP);
 	}
 }
 

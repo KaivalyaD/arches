@@ -5,6 +5,58 @@
 static std::atomic_uint _next_thread;
 #endif
 
+#ifdef __riscv
+	#define SBI_CALL(which, arg0, arg1, arg2) ({                \
+		register uintptr_t a0 asm ("a0") = (uintptr_t)(arg0);   \
+		register uintptr_t a1 asm ("a1") = (uintptr_t)(arg1);   \
+		register uintptr_t a2 asm ("a2") = (uintptr_t)(arg2);   \
+		register uintptr_t a7 asm ("a7") = (uintptr_t)(which);  \
+		asm volatile ("ecall"                                   \
+				: "+r" (a0)                                     \
+				: "r" (a1), "r" (a2), "r" (a7)                  \
+				: "memory");                                    \
+		a0;                                                     \
+	})
+#else
+	#define SBI_CALL(which, arg0, arg1, arg2)
+#endif
+
+#define SBI_CALL_0(which) SBI_CALL(which, 0, 0, 0)
+#define SBI_CALL_1(which, arg0) SBI_CALL(which, arg0, 0, 0)
+#define SBI_CALL_2(which, arg0, arg1) SBI_CALL(which, arg0, arg1, 0)
+
+void inline putlabel(uint32_t label) {
+	SBI_CALL_1(0x0, label);
+}
+
+void inline putuint(uint32_t i) {
+    SBI_CALL_1(0x1, i);
+}
+
+void inline putint(int32_t i) {
+    SBI_CALL_1(0x2, i);
+}
+
+void inline putfloat(float f) {
+    SBI_CALL_1(0x3, f);
+}
+
+void inline putuvec2(const rtm::uvec2 &uv2) {
+    SBI_CALL_2(0x10, uv2[0], uv2[1]);
+}
+
+void inline putvec2(const rtm::vec2 &v2) {
+    SBI_CALL_2(0x11, v2[0], v2[1]);
+}
+
+void inline putuvec3(const rtm::uvec3 &uv3) {
+    SBI_CALL(0x20, uv3[0], uv3[1], uv3[2]);
+}
+
+void inline putvec3(const rtm::vec3 &v3) {
+    SBI_CALL(0x21, v3[0], v3[1], v3[2]);
+}
+
 // uint32_t inline fchthrd()
 // {
 // #ifdef __riscv

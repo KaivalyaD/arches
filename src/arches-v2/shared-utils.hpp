@@ -36,7 +36,11 @@ std::string get_project_folder_path()
 	// CHAR path[MAX_PATH];
 	// GetModuleFileNameA(NULL, path, MAX_PATH);
 	std::string executable_path(full_exe_name);
+#ifdef BUILD_DEBUG
+	return executable_path.substr(0, executable_path.rfind("debug"));
+#else
 	return executable_path.substr(0, executable_path.rfind("build"));
+#endif
 }
 
 template <typename T>
@@ -222,7 +226,7 @@ public:
 
 		//Workload
 		set_param("dataset-dir", "./datasets");
-		set_param("scene-name", "spheres");
+		set_param("scene-name", "sponza");
 		set_param("framebuffer-width", 1024);
 		set_param("framebuffer-height", 1024);
 		set_param("pregen-rays", 0);

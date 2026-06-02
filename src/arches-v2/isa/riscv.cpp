@@ -202,7 +202,34 @@ InstructionInfo const isa_SYSTEM[2] =
 {
 	InstructionInfo(0b000000000000, "ecall", InstrType::SYS, Encoding::I, RegFile::INT, EXEC_DECL
 	{
-		//TODO this could be useful for things like printing to console
+		uint64_t syscall = unit->int_regs->a7.u64;
+		switch(syscall)
+		{
+		case 0x0:  // label
+			printf("[%d]\t", unit->int_regs->a0.u32);
+			break;
+		case 0x1:  // uint
+			printf("%u\n", unit->int_regs->a0.u32);
+			break;
+		case 0x2:  // int
+			printf("%d\n", (int)unit->int_regs->a0.u32);
+			break;
+		case 0x3:  // float
+			printf("%f\n", unit->int_regs->a0.f32);
+			break;
+		case 0x10:  // uvec2
+			printf("(%u, %u)\n", unit->int_regs->a0.u32, unit->int_regs->a1.u32);
+			break;
+		case 0x11:  // vec2
+			printf("(%f, %f)\n", unit->int_regs->a0.f32, unit->int_regs->a1.f32);
+			break;
+		case 0x20:  // uvec3
+			printf("(%u, %u, %u)\n", unit->int_regs->a0.u32, unit->int_regs->a1.u32, unit->int_regs->a2.u32);
+			break;
+		case 0x21:  // vec3
+			printf("(%f, %f, %f)\n", unit->int_regs->a0.f32, unit->int_regs->a1.f32, unit->int_regs->a2.f32);
+			break;
+		}
 	}),
 	InstructionInfo(0b000000000001, "ebreak", InstrType::SYS, Encoding::I, RegFile::INT, EXEC_DECL
 	{

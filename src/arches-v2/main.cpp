@@ -198,66 +198,66 @@ static TRaXKernelArgs initilize_buffers(Units::UnitMainMemoryBase** drams, const
 	args.light_dir = rtm::normalize(rtm::vec3(4.5f, 42.5f, 5.0f));
 	args.camera = sim_config.camera;
 
-	rtm::Sphere spheres[3];
-	spheres[0].center = rtm::vec3(-1.5f, -1.0f, 0.0f);
-	spheres[0].radius = 2.0f;
-	spheres[1].center = rtm::vec3(0.0f, 1.0f, 0.0f);
-	spheres[1].radius = 1.0f;
-	spheres[2].center = rtm::vec3(1.5f, -1.0f, 0.0f);
-	spheres[2].radius = 1.0f;
-	args.sphere_list.spheres = write_array(drams, xbar, 256, spheres, sizeof(spheres), heap_address);
-	args.sphere_list.sphere_count = sizeof(spheres) / sizeof(rtm::Sphere);
+	// rtm::Sphere spheres[3];
+	// spheres[0].center = rtm::vec3(-1.5f, -1.0f, 0.0f);
+	// spheres[0].radius = 2.0f;
+	// spheres[1].center = rtm::vec3(0.0f, 1.0f, 0.0f);
+	// spheres[1].radius = 1.0f;
+	// spheres[2].center = rtm::vec3(1.5f, -1.0f, 0.0f);
+	// spheres[2].radius = 1.0f;
+	// args.sphere_list.spheres = write_array(drams, xbar, 256, spheres, sizeof(spheres), heap_address);
+	// args.sphere_list.sphere_count = sizeof(spheres) / sizeof(rtm::Sphere);
 
-	// rtm::Mesh mesh(datasets_folder + scene_name + ".obj");
-	// rtm::CWBVH bvh(mesh, (cache_folder + scene_name + ".bvh").c_str(), sim_config.get_int("bvh-preset"), sim_config.get_int("bvh-merging"));
+	rtm::Mesh mesh(datasets_folder + scene_name + ".obj");
+	rtm::CWBVH bvh(mesh, (cache_folder + scene_name + ".bvh").c_str(), sim_config.get_int("bvh-preset"), sim_config.get_int("bvh-merging"));
 
-	// std::vector<rtm::Ray> rays(args.framebuffer_size);
+	std::vector<rtm::Ray> rays(args.framebuffer_size);
 	if(args.pregen_rays)
 	{
-		// std::string ray_file = scene_name + "-" + std::to_string(args.framebuffer_width) + "-" + std::to_string(pregen_bounce) + ".rays";
+		std::string ray_file = scene_name + "-" + std::to_string(args.framebuffer_width) + "-" + std::to_string(pregen_bounce) + ".rays";
 	#if USE_HECWBVH_V1
-		// pregen_rays(&bvh.nodes[0], &bvh.nodes[0].ftb, mesh, args.framebuffer_width, args.framebuffer_height, args.camera, pregen_bounce, rays);
+		pregen_rays(&bvh.nodes[0], &bvh.nodes[0].ftb, mesh, args.framebuffer_width, args.framebuffer_height, args.camera, pregen_bounce, rays);
 	#else
-		// pregen_rays(&bvh.nodes[0], &bvh.ftbs[0], mesh, args.framebuffer_width, args.framebuffer_height, args.camera, pregen_bounce, rays);
+		pregen_rays(&bvh.nodes[0], &bvh.ftbs[0], mesh, args.framebuffer_width, args.framebuffer_height, args.camera, pregen_bounce, rays);
 	#endif
-		// args.rays = write_vector(drams, xbar, 256, rays, heap_address);
+		args.rays = write_vector(drams, xbar, 256, rays, heap_address);
 	}
 
-	// args.materials = write_vector(drams, xbar, 256, mesh.materials, heap_address);
+	args.materials = write_vector(drams, xbar, 256, mesh.materials, heap_address);
 
-	// args.nodes = write_vector(drams, xbar, 256, bvh.nodes, heap_address);
+	args.nodes = write_vector(drams, xbar, 256, bvh.nodes, heap_address);
 
 #if USE_HECWBVH_V1
-	// args.ftbs = (rtm::FTB*)args.nodes;
+	args.ftbs = (rtm::FTB*)args.nodes;
 #else 
-	// args.ft_blocks = write_vector(drams, xbar, 256, bvh.ftbs, heap_address);
+	args.ft_blocks = write_vector(drams, xbar, 256, bvh.ftbs, heap_address);
 #endif
 
-	// args.vertex_indices = write_vector(drams, xbar, 256, mesh.vertex_indices, heap_address);
-	// args.normal_indices = write_vector(drams, xbar, 256, mesh.normal_indices, heap_address);
-	// args.tex_coord_indices = write_vector(drams, xbar, 256, mesh.tex_coord_indices, heap_address);
+	args.vertex_indices = write_vector(drams, xbar, 256, mesh.vertex_indices, heap_address);
+	args.normal_indices = write_vector(drams, xbar, 256, mesh.normal_indices, heap_address);
+	args.tex_coord_indices = write_vector(drams, xbar, 256, mesh.tex_coord_indices, heap_address);
 
-	// args.vertices = write_vector(drams, xbar, 256, mesh.vertices, heap_address);
-	// args.normals = write_vector(drams, xbar, 256, mesh.normals, heap_address);
-	// args.tex_coords = write_vector(drams, xbar, 256, mesh.tex_coords, heap_address);
+	args.vertices = write_vector(drams, xbar, 256, mesh.vertices, heap_address);
+	args.normals = write_vector(drams, xbar, 256, mesh.normals, heap_address);
+	args.tex_coords = write_vector(drams, xbar, 256, mesh.tex_coords, heap_address);
 
-	// args.material_indices = write_vector(drams, xbar, 256, mesh.material_indices, heap_address);
+	args.material_indices = write_vector(drams, xbar, 256, mesh.material_indices, heap_address);
 
-	// for(uint32_t i = 0; i < mesh.materials.size(); ++i)
-	// {
-	// 	if(!mesh.materials[i].use_am)
-	// 		continue;
-	// 	Texture2D& tex = mesh.materials[i].albedo_texture;
-	// 	Texture2D::Texel* dev_tex = write_array(drams, xbar, 256, tex.texels, tex.width * tex.height, heap_address);
-	// 	free(tex.texels);
-	// 	tex.texels = dev_tex;
-	// }
+	for(uint32_t i = 0; i < mesh.materials.size(); ++i)
+	{
+		if(!mesh.materials[i].use_am)
+			continue;
+		Texture2D& tex = mesh.materials[i].albedo_texture;
+		Texture2D::Texel* dev_tex = write_array(drams, xbar, 256, tex.texels, tex.width * tex.height, heap_address);
+		free(tex.texels);
+		tex.texels = dev_tex;
+	}
 
-	// paddr_t mat_addr = (paddr_t)args.materials;
-	// args.materials = write_vector(drams, xbar, 256, mesh.materials, mat_addr);
+	paddr_t mat_addr = (paddr_t)args.materials;
+	args.materials = write_vector(drams, xbar, 256, mesh.materials, mat_addr);
 
-	// for(uint32_t i = 0; i < mesh.materials.size(); ++i)
-	// 	mesh.materials[i].albedo_texture.texels = nullptr;  // to not free device memory textures
+	for(uint32_t i = 0; i < mesh.materials.size(); ++i)
+		mesh.materials[i].albedo_texture.texels = nullptr;  // to not free device memory textures
 
 	size_t temp = TRAX_KERNEL_ARGS_ADDRESS;
 	write_array(drams, xbar, 256, (uint8_t*)&args, sizeof(TRaXKernelArgs), temp);
