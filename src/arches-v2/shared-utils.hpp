@@ -138,6 +138,10 @@ const static std::vector<SceneConfig> scene_configs =
 {
 	{"spheres", rtm::vec3(0.0f, 0.0f, 5.0f), rtm::vec3(0.0f, 0.0f, 0.0f), 24.0f}, //SPHERES
 	
+	{"triangle", rtm::vec3(0.0f, 0.0f, 5.0f), rtm::vec3(0.0f, 0.0f, 0.0f), 24.0f}, //TRIANGLE
+	
+	{"teapot", rtm::vec3(0.0f, 0.0f, 5.0f), rtm::vec3(0.0f, 0.0f, 0.0f), 24.0f}, //TEAPOT
+	
 	{"cornell-box", rtm::vec3(0, 0.8, 1.8), rtm::vec3(0, 0.8, 0), 12.0f}, //CORNELLBOX
 
 	{"sibenik", rtm::vec3(3.0, -13.0, 0.0), rtm::vec3(0, -12.0, 0), 12.0f}, 
@@ -226,7 +230,7 @@ public:
 
 		//Workload
 		set_param("dataset-dir", "./datasets");
-		set_param("scene-name", "sponza");
+		set_param("scene-name", "triangle");
 		set_param("framebuffer-width", 1024);
 		set_param("framebuffer-height", 1024);
 		set_param("pregen-rays", 0);
