@@ -3,27 +3,18 @@
 #include "custom-instr.hpp"
 #include "intersect.hpp"
 
-#define IGNORE 0U
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+
+#define IGNORE 0x0U
 
 inline uint encode(float red, float green, float blue, float alpha = 1.0f)
 {
-    uint r = fmax(fmin(red,   1.0f), 0.0f) * 0xff;
-    uint g = fmax(fmin(green, 1.0f), 0.0f) * 0xff;
-    uint b = fmax(fmin(blue,  1.0f), 0.0f) * 0xff;
-    uint a = fmax(fmin(alpha, 1.0f), 0.0f) * 0xff;
+    uint r = MIN(MAX(0.0f, red  ), 1.0f) * 0xff;
+    uint g = MIN(MAX(0.0f, green), 1.0f) * 0xff;
+    uint b = MIN(MAX(0.0f, blue ), 1.0f) * 0xff;
+    uint a = MIN(MAX(0.0f, alpha), 1.0f) * 0xff;
     return r | (g << 8) | (b << 16) | (a << 24);
-}
-
-inline void raygen(float x, float y, rtm::Ray &ray)
-{
-    ray.o.x = x;
-    ray.o.y = y;
-    ray.o.z = 5.0f;
-    ray.t_min = 0.1f;
-    ray.d.x = x;
-    ray.d.y = y;
-    ray.d.z = -1.0f;
-    ray.t_max = FLT_MAX;
 }
 
 int main(void)
@@ -55,21 +46,20 @@ int main(void)
         uint fb_index = index;
 
         // trace a primary ray for each pixel within this tile
-        rtm::Ray ray;
-        float x = float(frameX) / float(args.framebuffer_width);
-        float y = float(frameY) / float(args.framebuffer_height);
-        raygen(x, y, ray);
+        // generate
+        rtm::Ray ray = args.camera.generate_ray_through_pixel(frameX, frameY);
         
-        // rtm::Hit hit;
-        // _traceray<IGNORE>(IGNORE, ray, hit);
+        // trace
+        rtm::Hit hit(ray.t_max, rtm::vec2(0.0f), ~0U);
+        _traceray<IGNORE>(IGNORE, ray, hit);
 
-        // uint color = 0xff'00'00'ff;
-        // if(hit.t < ray.t_max)
-        // {
-        //     color = 0xff'ff'ff'ff;
-        // }
-
-        args.framebuffer[fb_index] = encode(x, 0.0f, 0.0f);
+        // shade
+        uint color = encode(0.0f, 0.0f, 0.0f); // miss
+        if(hit.t < ray.t_max)
+        {
+            color = encode(1.0f, 0.0f, 0.0f); // hit
+        }
+        args.framebuffer[fb_index] = color;
     }
     return 0;
 }

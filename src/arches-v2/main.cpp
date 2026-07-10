@@ -841,6 +841,28 @@ static void run_sim_trax(SimulationConfig& sim_config)
 	stbi_flip_vertically_on_write(true);
 	stbi_write_png("out.png", (int)kernel_args.framebuffer_width, (int)kernel_args.framebuffer_height, 4, vec_mem.data() + (size_t)kernel_args.framebuffer, 0);
 
+	// FILE *f = fopen("framebuffer.txt", "w");
+	// const uint32_t *const framebuffer = (uint32_t *)(vec_mem.data() + (size_t)kernel_args.framebuffer);
+	// for(int y = 0; y < kernel_args.framebuffer_height; ++y)
+	// {
+	// 	for(int x = 0; x < kernel_args.framebuffer_width; ++x)
+	// 	{
+	// 		uint index = y * kernel_args.framebuffer_width + x;
+	// 		uint color = framebuffer[index];
+	// 		uint8_t r = (color >>  0) & 0xff;
+	// 		uint8_t g = (color >>  8) & 0xff;
+	// 		uint8_t b = (color >> 16) & 0xff;
+	// 		uint8_t a = (color >> 24) & 0xff;
+	// 		fprintf(
+	// 			f,
+	// 			"(%d, %d): %02x'%02x'%02x'%02x\n",
+	// 			x, y,
+	// 			a, b, g, r
+	// 		);
+	// 	}
+	// }
+	// fclose(f);
+
 	for(auto& tp : tps) delete tp;
 	for(auto& sfu : sfus) delete sfu;
 	for(auto& l1d : l1ds) delete l1d;
