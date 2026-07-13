@@ -19,35 +19,24 @@ inline uint encode(float red, float green, float blue, float alpha = 1.0f)
 
 int main(void)
 {
-    // framebuffer address format:
-    // suppose framebuffer size is 256 x 256. Then, we get a 1-D index into framebuffer as:
-    //    u32 index  = 0xYYXX
-    // subdividing index, we can get 2-D image-space coords:
-    //    u32 frameX = 0xXX
-    //    u32 frameY = 0xYY
-    // subdividing image-space coords, we can construct tiles with coords:
-    //    u32 tileX  = frameX >> 2 // where 1 << 2 = 4 is the tile_width
-    //    u32 tileY  = frameY >> 3 // where 1 << 3 = 8 is the tile_height
-    // using tile and image-space coords, we can obtain coords local to the tile:
-    //    u32 tile_local_x = frameX & 0b'0011 // 0b'0011 = ~(~0 << 2)
-    //    u32 tile_local_y = frameY & 0b'0111 // 0b'0111 = ~(~0 << 3)
-    constexpr uint TILE_X_INDEX_BITS  = 2;
-    constexpr uint TILE_Y_INDEX_BITS  = 3;
-    constexpr uint TILE_WIDTH         = 1 << TILE_X_INDEX_BITS;
-    constexpr uint TILE_HEIGHT        = 1 << TILE_Y_INDEX_BITS;
-    constexpr uint TILE_X_MASK        = (~0U << TILE_X_INDEX_BITS);
-    constexpr uint TILE_Y_MASK        = (~0U << TILE_Y_INDEX_BITS);
+    constexpr uint TILE_WIDTH  = 4;
+    constexpr uint TILE_HEIGHT = 8;
+    constexpr uint TILE_SIZE   = TILE_WIDTH * TILE_HEIGHT;
 
     const TRaXKernelArgs args = *(TRaXKernelArgs *)(TRAX_KERNEL_ARGS_ADDRESS);
     for (uint index = fchthrd(); index < args.framebuffer_size; index = fchthrd())
 	{
-        uint frameX   = index % args.framebuffer_width;
-        uint frameY   = index / args.framebuffer_width;
-        uint fb_index = index;
+        uint thread_id = index % TILE_SIZE;
+        uint tileIndex = index / TILE_SIZE;
+        uint tileX     = tileIndex % (args.framebuffer_width / TILE_WIDTH);
+        uint tileY     = tileIndex / (args.framebuffer_width / TILE_WIDTH);
+		uint x         = tileX * TILE_WIDTH + thread_id % TILE_WIDTH;
+		uint y         = tileY * TILE_HEIGHT + thread_id / TILE_WIDTH;
+		uint fb_index = y * args.framebuffer_width + x;
 
         // trace a primary ray for each pixel within this tile
         // generate
-        rtm::Ray ray = args.camera.generate_ray_through_pixel(frameX, frameY);
+        rtm::Ray ray = args.camera.generate_ray_through_pixel(x, y);
         
         // trace
         rtm::Hit hit(ray.t_max, rtm::vec2(0.0f), ~0U);
@@ -59,7 +48,9 @@ int main(void)
         {
             color = encode(1.0f, 0.0f, 0.0f); // hit
         }
-        args.framebuffer[fb_index] = color;
+
+        // write framebuffer
+        args.framebuffer[fb_index++] = color;
     }
     return 0;
 }
