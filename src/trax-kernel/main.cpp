@@ -54,7 +54,7 @@ int main(void)
         _traceray<IGNORE>(IGNORE, ray, hit);
 
         // shade
-        uint color = encode(0.0f, 0.0f, 0.0f); // miss
+        uint color = encode(0.3f, 0.3f, 0.3f); // miss
         if(hit.t < ray.t_max)
         {
             color = encode(1.0f, 0.0f, 0.0f); // hit
