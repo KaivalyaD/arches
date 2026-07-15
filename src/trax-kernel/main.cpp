@@ -17,6 +17,23 @@ inline uint encode(float red, float green, float blue, float alpha = 1.0f)
     return r | (g << 8) | (b << 16) | (a << 24);
 }
 
+inline void map_thread_into_pixel(
+    uint thread_id,
+    uint tile_id,
+    uint framebuffer_width,
+    uint tile_width,
+    uint tile_height,
+    uint &pixel_x,
+    uint &pixel_y,
+    uint &tile_x,
+    uint &tile_y
+) {
+    tile_x  = tile_id % (framebuffer_width / tile_width);
+    tile_y  = tile_id / (framebuffer_width / tile_width);
+    pixel_x = tile_x * tile_width + thread_id % tile_width;
+    pixel_y = tile_y * tile_height + thread_id / tile_width;
+}
+
 int main(void)
 {
     constexpr uint TILE_WIDTH  = 4;
@@ -26,13 +43,14 @@ int main(void)
     const TRaXKernelArgs args = *(TRaXKernelArgs *)(TRAX_KERNEL_ARGS_ADDRESS);
     for (uint index = fchthrd(); index < args.framebuffer_size; index = fchthrd())
 	{
-        uint thread_id = index % TILE_SIZE;
-        uint tileIndex = index / TILE_SIZE;
-        uint tileX     = tileIndex % (args.framebuffer_width / TILE_WIDTH);
-        uint tileY     = tileIndex / (args.framebuffer_width / TILE_WIDTH);
-		uint x         = tileX * TILE_WIDTH + thread_id % TILE_WIDTH;
-		uint y         = tileY * TILE_HEIGHT + thread_id / TILE_WIDTH;
-		uint fb_index = y * args.framebuffer_width + x;
+        uint tileId   = index / TILE_SIZE;
+        uint threadId = index % TILE_SIZE;
+        // uint tile_x, tile_y, x, y;
+        // map_thread_into_pixel(threadId, tileId, args.framebuffer_width, TILE_WIDTH, TILE_HEIGHT, x, y, tile_x, tile_y);
+		// uint fb_index = y * args.framebuffer_width + x;
+		uint x = index % args.framebuffer_width;
+        uint y = index / args.framebuffer_width;
+        uint fb_index = index;
 
         // trace a primary ray for each pixel within this tile
         // generate
@@ -44,10 +62,13 @@ int main(void)
 
         // shade
         uint color = encode(0.3f, 0.3f, 0.3f); // miss
-        if(hit.t < ray.t_max)
-        {
-            color = encode(1.0f, 0.0f, 0.0f); // hit
-        }
+        // if(hit.t < ray.t_max)
+        // {
+            // color = encode(1.0f, 0.0f, 0.0f); // hit
+            // if(((x >> 2) & 0x1) ^ !((y >> 3) & 0x1))
+                // color = encode(0.0f, 1.0f, 0.0f);
+            color = 0xff'00'00'00 | ((tileId & 0x1) ^ !(y & 0x1) ? 0x00'00'ff'00 : 0x00'00'00'ff);
+        // }
 
         // write framebuffer
         args.framebuffer[fb_index++] = color;
