@@ -1,7 +1,7 @@
 make: riscv riscv-dissasm
 
 #-mno-relax 
-riscv: ./*
+riscv: main.cpp
 	mkdir -p riscv
 	riscv64-unknown-elf-g++ -mno-relax -nostartfiles -emain -Wstack-usage=512 -mabi=lp64f -Ofast -I ../../include ./main.cpp -o ./riscv/kernel
 
