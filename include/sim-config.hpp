@@ -35,6 +35,8 @@ const static std::vector<SceneConfig> scene_configs =
 	{"san-miguel", rtm::vec3(7.448, 1.014, 12.357), rtm::vec3(8.056, 1.04, 11.563), 12.0f},
 	{"hairball", rtm::vec3(0, 0, 10), rtm::vec3(0, 0, 0), 24.0f},
 	{"bistro", rtm::vec3(-8.0, 2.0, 2.0), rtm::vec3(0.0f, 1.0f, -1.0f), 12.0f},
+	{"triangle", rtm::vec3(0.0, 0.0, 5.0), rtm::vec3(0.0f, 0.0f, 0.0f), 24.0f},
+	{"teapot", rtm::vec3(0.0, 0.0, 5.0), rtm::vec3(0.0f, 0.0f, 0.0f), 24.0f},
 };
 
 class SimulationConfig

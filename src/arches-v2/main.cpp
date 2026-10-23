@@ -6,6 +6,7 @@
 #include "trax-kernel/include.hpp"
 #include "trax-kernel/intersect.hpp"
 #include "units/unit-texture.hpp"
+#include "units/unit-global-work-dispatcher.hpp"
 
 namespace Arches {
 
@@ -146,6 +147,9 @@ typedef Units::UnitCache UnitL2Cache;
 typedef Units::UnitCache UnitL1Cache;
 typedef rtm::FTB PrimBlocks;
 typedef Units::TRaX::UnitRTCore<rtm::CWBVH::Node, PrimBlocks> UnitRTCore;
+typedef Units::UnitGlobalWorkDispatcher UnitGraphicsWorkDispatcher;
+
+uint num_indices = 0;
 
 static TRaXKernelArgs initilize_buffers(Units::UnitMainMemoryBase** drams, const Units::UnitCrossbar& xbar, paddr_t& heap_address, const SimulationConfig& sim_config, uint page_size)
 {
@@ -192,6 +196,7 @@ static TRaXKernelArgs initilize_buffers(Units::UnitMainMemoryBase** drams, const
 	args.ft_blocks = write_vector(drams, xbar, 256, bvh.ftbs, heap_address);
 #endif
 
+	num_indices = mesh.vertex_indices.size();
 	args.vertex_indices = write_vector(drams, xbar, 256, mesh.vertex_indices, heap_address);
 	args.normal_indices = write_vector(drams, xbar, 256, mesh.normal_indices, heap_address);
 	args.tex_coord_indices = write_vector(drams, xbar, 256, mesh.tex_coord_indices, heap_address);
@@ -223,7 +228,7 @@ static TRaXKernelArgs initilize_buffers(Units::UnitMainMemoryBase** drams, const
 	return args;
 }
 
-static void run_sim_trax(SimulationConfig& sim_config)
+static void simulate(SimulationConfig& sim_config)
 {
 	//Nvidia RTX 2080 Ti -ish
 	double core_clock = 1515.0e6;
@@ -237,11 +242,11 @@ static void run_sim_trax(SimulationConfig& sim_config)
 	uint num_tpcs_per_gpc = num_tpcs / num_gpcs;
 	uint64_t stack_size   = 1024;
 
+	//DRAM
 	double dram_clock = 3500.0e6;
 	uint num_partitions = 8;
 	uint partition_stride = 1 << 12;
 
-	//DRAM
 	UnitDRAM::Configuration dram_config;
 	dram_config.config_path = join_path(sim_config.get_string("config-dir"), "gddr6_14000_config.yaml");
 	dram_config.size = 1ull << 30; //1GB
@@ -262,7 +267,7 @@ static void run_sim_trax(SimulationConfig& sim_config)
 
 	UnitL2Cache::PowerConfig l2_power_config;
 
-	//Chip-wide Crossbar Interconnect
+	//L1->L2 Crossbar
 	Units::UnitCrossbar::Configuration xbar_config;
 	xbar_config.num_slices = l2_config.num_slices;
 	xbar_config.slice_stride = l2_config.block_size;
@@ -332,10 +337,20 @@ static void run_sim_trax(SimulationConfig& sim_config)
 		xbar_config.mem_highers.push_back(l2s.back());
 	}
 
-	xbar_config.num_clients = num_tms;
+	xbar_config.num_clients = num_tms + 16;
 	Units::UnitCrossbar xbar(xbar_config);
 	simulator.register_unit(&xbar);
 	simulator.new_unit_group();
+
+	// Graphics Work Dispatcher
+	UnitGraphicsWorkDispatcher::Configuration gwd_config;
+	gwd_config.num_clients = num_gpcs;
+	gwd_config.num_workers_per_client = num_tms / num_gpcs;
+	gwd_config.work_element_size = sizeof(uint32_t);
+	gwd_config.work_dispatch_size = num_tps_per_tm;
+	gwd_config.mem_higher_port = num_tms;
+	gwd_config.num_ports = 8;
+	gwd_config.mem_higher = &xbar;
 
 	std::vector<uint8_t> vec_mem;
 	vec_mem.resize(256 << 20);
@@ -349,6 +364,12 @@ static void run_sim_trax(SimulationConfig& sim_config)
 
 	for(uint addr = 0; addr < (256 << 20); addr += partition_stride)
 		drams[xbar.get_partition(addr)]->direct_read(vec_mem.data() + addr, partition_stride, xbar.strip_partition_bits(addr));
+
+	gwd_config.work_buffer_size = num_indices * sizeof(uint32_t);
+	gwd_config.work_buffer_ptr = (vaddr_t)kernel_args.vertex_indices;
+	UnitGraphicsWorkDispatcher *gwd = _new UnitGraphicsWorkDispatcher(gwd_config);
+	simulator.register_unit(gwd);
+	simulator.new_unit_group();
 
 	//bool warm_l2 = false;
 	//if(warm_l2)
@@ -375,11 +396,11 @@ static void run_sim_trax(SimulationConfig& sim_config)
 
 	for(uint gpc_index = 0; gpc_index < num_gpcs; ++gpc_index)
 	{
-		uint tpc_id = gpc_index * num_tpcs_per_gpc;
-		for(uint tpc_index = tpc_id; tpc_index < num_tpcs_per_gpc; ++tpc_index)
+		uint tpc_offset = gpc_index * num_tpcs_per_gpc;
+		for(uint tpc_index = tpc_offset; tpc_index < num_tpcs_per_gpc; ++tpc_index)
 		{
-			uint tm_id = tpc_index * num_tms_per_tpc;
-			for(uint tm_index = tm_id; tm_index < num_tms_per_tpc; ++tm_index)
+			uint tm_offset = tpc_index * num_tms_per_tpc;
+			for(uint tm_index = tm_offset; tm_index < num_tms_per_tpc; ++tm_index)
 			{
 				std::vector<Units::UnitBase*> unit_table((uint)ISA::RISCV::InstrType::NUM_TYPES, nullptr);
 				std::vector<Units::UnitMemoryBase*> mem_list;
@@ -605,6 +626,7 @@ static void run_sim_trax(SimulationConfig& sim_config)
 	stbi_flip_vertically_on_write(true);
 	stbi_write_png("arches-out.png", (int)kernel_args.framebuffer_width, (int)kernel_args.framebuffer_height, 4, vec_mem.data() + (size_t)kernel_args.framebuffer, 0);
 
+	delete gwd;
 	for(auto& tp : tps) delete tp;
 	for(auto& sfu : sfus) delete sfu;
 	for(auto& l1d : l1ds) delete l1d;
@@ -622,6 +644,6 @@ int main(int argc, char* argv[])
 	sim_config.set_param("kernel-path", Arches::get_default_kernel_path());
 	sim_config.parse(argc, argv);
 
-	Arches::TRaX::run_sim_trax(sim_config);
+	Arches::TRaX::simulate(sim_config);
 	return 0;
 }

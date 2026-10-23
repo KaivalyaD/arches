@@ -208,4 +208,14 @@ struct SceneBufferLoadRequest
 	uint16_t port;
 };
 
+struct WorkDispatch
+{
+	enum Type
+	{
+		UINT32 = 0,
+	} element_type{UINT32};
+	size_t element_count{0};
+	vaddr_t vaddr{~0ull};
+};
+
 }

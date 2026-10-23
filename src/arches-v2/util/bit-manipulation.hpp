@@ -118,7 +118,7 @@ struct BitStack58
 	void push(uint64_t value, uint bits)
 	{
 		_assert(size + bits <= 58);
-		_assert(value < (1 << bits));
+		_assert(value < (1ull << bits));
 		data |= value << size;
 		size += bits;
 	}
