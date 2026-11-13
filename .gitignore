@@ -10,6 +10,7 @@ datasets
 # directories
 [Bb]uild*
 venv
+vcpkg_installed/*
 
 ## log info
 *_log.txt
